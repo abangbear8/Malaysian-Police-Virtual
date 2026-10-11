@@ -1,5 +1,5 @@
 import './style.css';
-
+import { drawSprite } from './pixel-sprites';
 type Region='Bandar'|'Luar Bandar';
 type Difficulty='Mudah'|'Sederhana'|'Sukar';
 type AudioSettings={musicEnabled:boolean;musicVolume:number;sfxEnabled:boolean;sfxVolume:number};
