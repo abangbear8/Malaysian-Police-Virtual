@@ -263,3 +263,6 @@ body.main-menu-active .game-shell {
 body:not(.main-menu-active) .main-menu {
   display: none;
 }
+body.main-menu-active .modal-backdrop {
+  z-index: 6000;
+}
