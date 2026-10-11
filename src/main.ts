@@ -409,7 +409,7 @@ document
 
   function playMusicNote(): void {
     if (
-      !toggle.checked ||
+      !toggle!.checked ||
       !document.body.classList.contains('main-menu-active') ||
       !buttonAudioContext ||
       !musicGain
@@ -442,7 +442,7 @@ document
     stopMusic();
 
     if (
-      !toggle.checked ||
+      !toggle!.checked ||
       !document.body.classList.contains('main-menu-active')
     ) {
       return;
@@ -452,7 +452,7 @@ document
 
     void buttonAudioContext.resume().then(() => {
       if (
-        !toggle.checked ||
+        !toggle!.checked ||
         !document.body.classList.contains('main-menu-active')
       ) {
         return;
@@ -463,7 +463,7 @@ document
         musicGain.connect(buttonAudioContext!.destination);
       }
 
-      musicGain.gain.value = Number(volume.value) / 100;
+      musicGain.gain.value = Number(volume!.value) / 100;
 
       playMusicNote();
       musicTimer = window.setInterval(playMusicNote, 500);
@@ -482,7 +482,7 @@ document
 
   volume.addEventListener('input', () => {
     if (musicGain) {
-      musicGain.gain.value = Number(volume.value) / 100;
+      musicGain.gain.value = Number(volume!.value) / 100;
     }
   });
 
