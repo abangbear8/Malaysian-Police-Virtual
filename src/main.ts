@@ -25,8 +25,30 @@ app.innerHTML=`
     <div class="main-menu-crest">P</div>
     <p class="main-menu-eyebrow">SIMULASI KERJAYA</p>
     <h1>POLIS MALAYSIA<br><span>TYCOON</span></h1>
-    <p class="main-menu-tagline">BERKHIDMAT DEMI MASYARAKAT</p>
-    <div class="main-menu-buttons">
+    
+<p class="main-menu-tagline">BERKHIDMAT DEMI MASYARAKAT</p>
+
+<div class="menu-music-controls">
+  <label class="menu-music-toggle">
+    <input type="checkbox" id="menuMusicToggle" checked>
+    <span>Muzik Menu</span>
+    <strong id="menuMusicStatus">ON</strong>
+  </label>
+
+  <label class="menu-volume-label" for="menuMusicVolume">
+    Kelantangan Muzik
+    <input
+      type="range"
+      id="menuMusicVolume"
+      min="0"
+      max="100"
+      value="35"
+    >
+  </label>
+</div>
+
+<div class="main-menu-buttons">
+
       <button id="continueCareer" class="main-menu-btn primary">SAMBUNG SIMPANAN</button>
       <button id="newCareer" class="main-menu-btn">MULA KERJAYA BAHARU</button>
       <button id="menuSettings" class="main-menu-btn">TETAPAN</button>
