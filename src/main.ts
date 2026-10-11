@@ -20,6 +20,20 @@ function loadSave():SaveData { try { const raw=localStorage.getItem('pmt-save-v1
 function persist(){ localStorage.setItem('pmt-save-v1',JSON.stringify(save)); }
 const app=document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML=`
+<div id="mainMenu" class="main-menu">
+  <div class="main-menu-content">
+    <div class="main-menu-crest">P</div>
+    <p class="main-menu-eyebrow">SIMULASI KERJAYA</p>
+    <h1>POLIS MALAYSIA<br><span>TYCOON</span></h1>
+    <p class="main-menu-tagline">BERKHIDMAT DEMI MASYARAKAT</p>
+    <div class="main-menu-buttons">
+      <button id="continueCareer" class="main-menu-btn primary">SAMBUNG SIMPANAN</button>
+      <button id="newCareer" class="main-menu-btn">MULA KERJAYA BAHARU</button>
+      <button id="menuSettings" class="main-menu-btn">TETAPAN</button>
+      <button id="menuCredits" class="main-menu-btn">KREDIT</button>
+    </div>
+  </div>
+</div> 
 <div class="game-shell">
  <header class="topbar"><div class="brand"><div class="crest">P</div><div><div class="eyebrow">SIMULASI KERJAYA</div><h1>POLIS MALAYSIA <span>TYCOON</span></h1></div></div><div class="top-actions"><span class="save-state"><i></i> SIMPANAN SETEMPAT</span><button id="resetBtn" class="icon-btn" title="Mulakan semula">↻</button></div></header>
  <main class="layout"><section class="world-panel"><div id="scene" class="scene"><div class="scene-vignette"></div><div class="world-tag"><span class="live-dot"></span> BANDAR SENTOSA <span class="tag-divider">/</span> SYIF PAGI</div><div class="scene-hint"><kbd>W A S D</kbd> GERAK <span>·</span> <kbd>E</kbd> INTERAKSI</div><div id="missionToast" class="mission-toast hidden"></div><div class="touch-controls"><button data-move="up">▲</button><div><button data-move="left">◀</button><button data-move="down">▼</button><button data-move="right">▶</button></div></div><div class="interact-mobile"><button id="interactMobile">INTERAKSI</button></div><div class="menu-mobile"><button id="menuMobile" aria-label="Buka menu permainan">☰ MENU</button></div></div>
