@@ -260,3 +260,6 @@ body.main-menu-active .game-shell {
     padding: 8px;
   }
 }
+body:not(.main-menu-active) .main-menu {
+  display: none;
+}
