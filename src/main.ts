@@ -56,7 +56,7 @@ function makeCar(x:number,z:number,color=0xf4f6f7){const g=new THREE.Group();box
 const policeCar=makeCar(-9,2,0xf6f8f7); box(.55,.2,.25,mat(0x2579d4),-9,1.45,2,policeCar); box(.55,.2,.25,mat(0xd94646),-9,1.45,2.3,policeCar);
 makeCar(12,2,0xe5b66c); makeCar(17,-3,0xdfe7e8);
 // player character, simple stylized uniform
-const player=new THREE.Group(); cylinder(.38,.95,navy,0,.1,0,player); cylinder(.28,.34,mat(0xd7a47b),0,1.05,0,player); cylinder(.38,.18,navy,0,1.38,0,player); box(.7,.13,yellow,0,1.15,-.02,player); cylinder(.48,.16,mat(0x142c3f),0,1.48,0,player); player.position.set(-18,0,-13); scene.add(player);
+const player=new THREE.Group(); cylinder(.38,.95,navy,0,.1,0,player); cylinder(.28,.34,mat(0xd7a47b),0,1.05,0,player); cylinder(.38,.18,navy,0,1.38,0,player); box(.7,.13,.12,yellow,0,1.15,-.02,player); cylinder(.48,.16,mat(0x142c3f),0,1.48,0,player); player.position.set(-18,0,-13); scene.add(player);
 // NPCs
 const npcs:THREE.Group[]=[]; for(const [x,z,c] of [[-4,-10,0x4f8790],[5,12,0xc37d56],[23,13,0x5d77a0],[-25,3,0x9270a3],[8,-25,0x4d8a69]] as number[][]){const n=new THREE.Group();cylinder(.27,.8,mat(c),0,.1,0,n);cylinder(.23,.28,mat(0xd6a27b),0,.92,0,n);n.position.set(x,0,z);scene.add(n);npcs.push(n);}
 // mission markers
