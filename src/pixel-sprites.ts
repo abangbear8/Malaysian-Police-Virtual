@@ -1,6 +1,6 @@
 /**
 
-* Malaysian Police Virtual — Pixel Art Sprite Loader
+* Malaysian Police Virtual - Pixel Art Sprite Loader
     */
 
 export type SpriteName =
@@ -53,12 +53,15 @@ y: number,
 width = 64,
 height = 64,
 ): boolean {
-if (!loaded) return false;
+if (!loaded) {
+return false;
+}
 
 const [sx, sy] = SPRITES[name];
 
 ctx.save();
 ctx.imageSmoothingEnabled = false;
+
 ctx.drawImage(
 atlas,
 sx,
@@ -70,6 +73,7 @@ Math.round(y),
 width,
 height,
 );
+
 ctx.restore();
 
 return true;
