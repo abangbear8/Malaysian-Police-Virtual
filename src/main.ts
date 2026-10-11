@@ -235,3 +235,59 @@ document.querySelectorAll<HTMLButtonElement>('[data-move]').forEach(btn => {
 
 renderUI();
 
+// MAIN MENU: fungsi butang
+document.body.classList.add('main-menu-active');
+function masukPermainan() {
+  document.body.classList.remove('main-menu-active');
+}
+document.querySelector('#continueCareer')!
+  .addEventListener('click', () => {
+    if (!localStorage.getItem('pmt-save-v1')) {
+      alert('Tiada simpanan dijumpai. Pilih Mula Kerjaya Baharu.');
+      return;
+    }
+    masukPermainan();
+  });
+document.querySelector('#newCareer')!
+  .addEventListener('click', () => {
+    const adaSimpanan = !!localStorage.getItem('pmt-save-v1');
+    if (adaSimpanan &&
+        !confirm('Mulakan kerjaya baharu? Simpanan lama akan dipadam.')) {
+      return;
+    }
+    save = {
+      ...defaultSave,
+      completed: []
+    };
+    missions.forEach(m => {
+      m.done = false;
+      const marker = markers.get(m.id);
+      if (marker) marker.visible = true;
+    });
+    persist();
+    renderUI();
+    masukPermainan();
+  });
+document.querySelector('#menuSettings')!
+  .addEventListener('click', () => {
+    showModal(
+      'Tetapan',
+      'Kawalan permainan',
+      '<p>Komputer: WASD atau kekunci anak panah.</p>' +
+      '<p>Telefon: gunakan butang arah pada skrin.</p>' +
+      '<button id="settingsBack" class="primary-btn">KEMBALI</button>'
+    );
+    document.querySelector('#settingsBack')!
+      .addEventListener('click', closeModal);
+  });
+document.querySelector('#menuCredits')!
+  .addEventListener('click', () => {
+    showModal(
+      'Kredit',
+      'Polis Malaysia Tycoon',
+      '<p>Prototaip simulasi kerjaya polis fiksyen.</p>' +
+      '<button id="creditsBack" class="primary-btn">KEMBALI</button>'
+    );
+    document.querySelector('#creditsBack')!
+      .addEventListener('click', closeModal);
+  });
