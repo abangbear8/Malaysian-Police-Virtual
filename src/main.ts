@@ -231,13 +231,9 @@ function showGameMenu() {
     .addEventListener('click', closeModal);
 }
 
-
-  );
-  document.querySelector('#menuTasks')!
-    .addEventListener('click', showAllMissions);
-  document.querySelector('#menuResume')!
-    .addEventListener('click', closeModal);
-}
+document.querySelector('#menuMobile')!
+  .addEventListener('click', showGameMenu);
+  
 document.querySelector('#menuMobile')!
   .addEventListener('click', showGameMenu);
 document.querySelector('#interactMobile')!.addEventListener('click',interact);document.querySelector('#allMissionsBtn')!.addEventListener('click',showAllMissions);document.querySelector('#mapBtn')!.addEventListener('click',showAllMissions);document.querySelector('#closeModal')!.addEventListener('click',closeModal);document.querySelector('#modalBackdrop')!.addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});document.querySelector('#resetBtn')!.addEventListener('click',()=>{showModal('Mulakan semula kerjaya?','Kemajuan simpanan setempat akan dipadamkan.',`<p>Tindakan ini tidak boleh dibatalkan.</p><button id="confirmReset" class="danger-btn">PADAM KEMAJUAN</button>`);document.querySelector('#confirmReset')!.addEventListener('click',()=>{localStorage.removeItem('pmt-save-v1');location.reload();});});
