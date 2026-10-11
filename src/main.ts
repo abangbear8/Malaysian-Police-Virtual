@@ -92,10 +92,9 @@ function showAllMissions(){showModal('Senarai tugasan','Pilih tugasan yang belum
       <div><small>BAKI WANG</small><b>RM ${save.cash.toLocaleString()}</b></div>
       <div><small>TUGASAN SELESAI</small><b>${missions.filter(m => m.done).length}/6</b></div>
     </div>
-    
-<button id="menuProfile" class="primary-btn">PROFIL PEGAWAI →</button>
-<button id="menuTasks" class="secondary-btn">SENARAI TUGASAN →</button>
-<button id="menuResume" class="secondary-btn">SAMBUNG PERMAINAN</button>
+      <button id="menuProfile" class="primary-btn">PROFIL PEGAWAI →</button>
+      <button id="menuTasks" class="secondary-btn">SENARAI TUGASAN →</button>
+      <button id="menuResume" class="secondary-btn">SAMBUNG PERMAINAN</button>
 
   );
   document.querySelector('#menuTasks')!
