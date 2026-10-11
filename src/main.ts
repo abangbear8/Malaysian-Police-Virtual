@@ -1,186 +1,456 @@
-import './style.css';
-import { drawSprite } from './pixel-sprites';
-type Region='Bandar'|'Luar Bandar';
-type Difficulty='Mudah'|'Sederhana'|'Sukar';
-type AudioSettings={musicEnabled:boolean;musicVolume:number;sfxEnabled:boolean;sfxVolume:number};
-type MissionKind='Rondaan'|'Trafik'|'Siasatan'|'Bantuan awam'|'Kecemasan'|'Tangkapan';
-type Mission={id:string;title:string;kind:MissionKind;detail:string;reward:number;xp:number;seconds:number;mandatory:string[];optional:string[];x:number;y:number;status:'available'|'active'|'done'|'failed';step:number;deadline:number;cooldown:string};
-type Report={id:string;day:number;title:string;kind:string;location:string;status:'Belum lengkap'|'Selesai';facts:string[];bonusPaid:boolean};
-type SaveData={schemaVersion:number;careerStarted:boolean;region:Region;difficulty:Difficulty;day:number;shiftActive:boolean;shiftSeconds:number;salaryPaidDay:number;xp:number;rank:number;cash:number;publicRep:number;orgRep:number;morale:number;completedDays:number;completedMissions:number;failedMissions:number;bestScore:number;apcCount:number;settings:AudioSettings;walkX:number;walkY:number;inVehicle:boolean;vehicle:string;ownedVehicles:string[];ownedCars:string[];homeOwned:boolean;ownedClothes:string[];reports:Report[];pendingIncident:string;chatHistory:string[];lastChatAt:number;seenTutorial:boolean;missionCooldowns:string[];missionState:Mission[];activeMissionId:string;lastSummary:string;careerId:string};
-const SAVE_KEY='mpv-career-v3', BACKUP_KEY='mpv-career-v3-backup';
-const ranks=['Konstabel','Lans Koperal','Koperal','Sarjan','Sarjan Mejar','Sub-Inspektor','Inspektor','ASP','DSP','Superintenden'];
-const thresholds=[0,350,850,1500,2300,3300,4500,6200,8200,11000];
-const defaultAudio:AudioSettings={musicEnabled:true,musicVolume:25,sfxEnabled:true,sfxVolume:50};
-function freshSave(region:Region='Bandar',difficulty:Difficulty='Sederhana'):SaveData{return {schemaVersion:3,careerStarted:false,region,difficulty,day:1,shiftActive:false,shiftSeconds:720,salaryPaidDay:0,xp:0,rank:0,cash:2500,publicRep:50,orgRep:50,morale:65,completedDays:0,completedMissions:0,failedMissions:0,bestScore:0,apcCount:0,settings:{...defaultAudio},walkX:480,walkY:360,inVehicle:false,vehicle:'Patrol Sedan',ownedVehicles:['Patrol Sedan'],ownedCars:[],homeOwned:false,ownedClothes:['Uniform polis'],reports:[],pendingIncident:'',chatHistory:[],lastChatAt:0,seenTutorial:false,missionCooldowns:[],missionState:[],activeMissionId:'',lastSummary:'',careerId:`MPV-${Date.now().toString(36)}`};}
-function isObj(v:unknown):v is Record<string,any>{return typeof v==='object'&&v!==null&&!Array.isArray(v)}
-let recoveryNotice='';function loadSave():SaveData{try{const raw=localStorage.getItem(SAVE_KEY);if(raw){const v=JSON.parse(raw);if(isObj(v)&&typeof v.xp==='number'&&typeof v.cash==='number'&&Array.isArray(v.reports)){const d={...freshSave(),...v,schemaVersion:3,settings:{...defaultAudio,...(isObj(v.settings)?v.settings:{})}} as SaveData;if(!['Bandar','Luar Bandar'].includes(d.region))d.region='Bandar';if(!['Mudah','Sederhana','Sukar'].includes(d.difficulty))d.difficulty='Sederhana';d.day=Math.max(1,Math.floor(Number(d.day)||1));d.xp=Math.max(0,Math.floor(Number(d.xp)||0));d.cash=Math.max(0,Math.floor(Number(d.cash)||0));d.rank=Math.max(0,Math.min(ranks.length-1,Math.floor(Number(d.rank)||0)));d.shiftSeconds=Math.max(0,Math.min(720,Number(d.shiftSeconds)||720));return d;}}}catch{}try{const b=JSON.parse(localStorage.getItem(BACKUP_KEY)||'null');if(isObj(b)&&typeof b.xp==='number'&&Array.isArray(b.reports)){recoveryNotice='Simpanan utama rosak; backup dipulihkan.';return {...freshSave(),...b,settings:{...defaultAudio,...b.settings}} as SaveData;}}catch{}return freshSave();}
-let save=loadSave();function persist(){try{if(typeof missions!=='undefined')save.missionState=missions.map(m=>({...m,mandatory:[...m.mandatory],optional:[...m.optional]}));const old=localStorage.getItem(SAVE_KEY);if(old){try{const v=JSON.parse(old);if(isObj(v)&&typeof v.xp==='number'&&typeof v.cash==='number')localStorage.setItem(BACKUP_KEY,old);}catch{}}else if(!localStorage.getItem(BACKUP_KEY))localStorage.setItem(BACKUP_KEY,JSON.stringify(save));localStorage.setItem(SAVE_KEY,JSON.stringify(save));const e=document.querySelector('#saveStatus');if(e)e.textContent='DISIMPAN';return true;}catch{const e=document.querySelector('#saveStatus');if(e)e.textContent='RALAT SIMPAN';toast('Gagal menyimpan. Ruang storan mungkin penuh atau disekat.');return false;}}
-const app=document.querySelector<HTMLDivElement>('#app')!;
-app.innerHTML=`<div class="shell"><header class="topbar"><div class="brand"><div class="crest">MP</div><div><small>MALAYSIAN POLICE VIRTUAL</small><h1>POLIS <span>VIRTUAL</span></h1></div></div><div class="topmeta"><span id="dayLabel">HARI 1</span><span id="saveStatus">SIMPANAN SETEMPAT</span><button id="musicBtn" class="iconbtn" aria-label="Muzik" title="Muzik">♫</button><button id="fullscreenBtn" class="iconbtn" aria-label="Paparan penuh" title="Paparan penuh">⛶</button><button id="settingsBtn" class="iconbtn" aria-label="Tetapan">⚙</button><button id="pauseBtn" class="iconbtn" aria-label="Menu jeda">Ⅱ</button></div></header><main class="gamegrid"><section class="worldcard"><div class="worldtop"><span id="regionLabel">BANDAR SENTOSA</span><span id="shiftLabel">BELUM BERTUGAS</span><span id="clockLabel">12:00</span></div><canvas id="world" width="960" height="640" aria-label="Dunia permainan top-down"></canvas><div class="worldcontrols"><div class="dpad"><button data-key="up">▲</button><div><button data-key="left">◀</button><button data-key="down">▼</button><button data-key="right">▶</button></div></div><div class="actionpad"><button id="runBtn">LARI</button><button id="vehicleBtn">MASUK KENDERAAN</button><button id="sirenBtn">SIREN: OFF</button><button id="captureBtn" class="hidden">TANGKAP SUSPEK</button><button id="interactBtn">INTERAKSI</button></div></div><div class="worldfoot"><span id="nearby">Balai Polis Sentosa · Bergerak untuk meneroka.</span><button id="recenterBtn">PUSATKAN KAMERA</button></div></section><aside class="side"><section class="profile panel"><div class="person"><div class="avatar">👮</div><div><small>PEGAWAI BERTUGAS</small><h2 id="rankName">Konstabel</h2><span id="careerTag" class="tag">KERJAYA BAHARU</span></div></div><div class="xphead"><span>KEMAJUAN KERJAYA</span><b id="xpLabel">0 / 350 XP</b></div><div class="bar"><i id="xpBar"></i></div><div class="moneygrid"><div><small>BAKI WANG</small><strong id="cashLabel">RM 2,500</strong></div><div><small>GAJI / HARI</small><strong id="salaryLabel">RM 120</strong></div></div><div class="tinygrid"><span>Reputasi awam <b id="repLabel">50</b></span><span>Disiplin <b id="disciplineLabel">50</b></span><span>Semangat <b id="moraleLabel">65</b></span><span>APC <b id="apcLabel">0</b></span></div></section><section class="panel"><div class="sectiontitle"><div><small>PAPAN TUGASAN</small><h2>Kes & rondaan</h2></div><button class="smallbtn" id="boardBtn">PAPAR</button></div><div id="missionList" class="missionlist"></div><div class="shiftbar"><span>Syif 12 minit</span><b id="shiftProgress">Belum bermula</b></div></section><section class="panel quickpanel"><div class="sectiontitle"><div><small>OPERASI BALAI</small><h2>Akses pantas</h2></div></div><div class="quickgrid"><button data-action="station">BALAI & TAKLIMAT</button><button data-action="reports">LAPORAN</button><button data-action="garage">GARAJ</button><button data-action="comms">KOMUNIKASI</button><button data-action="home">RUMAH</button><button data-action="phone">WHATSAPP</button></div></section></aside></main><footer><span><i class="led"></i><b id="statusText">Pilih kerjaya untuk bermula.</b></span><span>SIMULASI FIKSYEN · BUKAN PROSEDUR RASMI PDRM</span></footer></div><div id="modalBackdrop" class="backdrop hidden"><section class="modal"><button id="modalClose" class="close">×</button><small id="modalEyebrow">PUSAT OPERASI</small><h2 id="modalTitle">Tajuk</h2><p id="modalDesc"></p><div id="modalBody"></div></section></div><div id="toast" class="toast hidden"></div>`;
-const canvas=document.querySelector<HTMLCanvasElement>('#world')!,ctx=canvas.getContext('2d')!;
-const world={w:1920,h:1280};let cameraX=0,cameraY=0;let keys=new Set<string>(),touch={x:0,y:0},modalOpen=false,paused=false,shiftEndHandled=false,frameLast=0,elapsed=0,lastAutosave=0,missionTimer=0,activeMission:Mission|null=null,siren=false,carX=280,carY=220,playerX=save.walkX,playerY=save.walkY,runHeld=false,majorIncidentTimer=0,incidentSeen=0,chatTimer=0,chatDismissAt=0,sceneMode:'world'|'station'|'home'='world',driveControl:'buttons'|'joystick'='buttons';
-const isHard=()=>save.difficulty==='Sukar', isEasy=()=>save.difficulty==='Mudah';
-const salaryForRank=(r=save.rank)=>Math.round(120+r*35);
-const difficultyScale=()=>isEasy()?1.2:isHard()?.78:1;
-const missionTemplates:{title:string;kind:MissionKind;detail:string;reward:number;xp:number;seconds:number;mandatory:string[];optional:string[];cooldown:string}[]=[
-{title:'Rondaan Taman Harmoni',kind:'Rondaan',detail:'Rondaan kawasan perumahan dan periksa lokasi yang ditandakan.',reward:150,xp:25,seconds:150,mandatory:['Pergi ke lokasi rondaan','Periksa kawasan'],optional:['Bantu orang awam'],cooldown:'Rondaan'},
-{title:'Kawal Persimpangan',kind:'Trafik',detail:'Urus trafik dan pastikan lintasan pejalan kaki selamat.',reward:300,xp:50,seconds:120,mandatory:['Pergi ke persimpangan','Kawal trafik'],optional:['Beri laluan kepada ambulans'],cooldown:'Trafik'},
-{title:'Siasatan Kedai Runcit',kind:'Siasatan',detail:'Temu bual saksi dan periksa petunjuk.',reward:500,xp:85,seconds:135,mandatory:['Pergi ke kedai','Periksa petunjuk','Temu bual saksi'],optional:['Ambil keterangan tambahan'],cooldown:'Siasatan'},
-{title:'Bantuan Kecemasan',kind:'Kecemasan',detail:'Tiba di lokasi insiden dan bantu orang awam.',reward:700,xp:120,seconds:100,mandatory:['Tiba di lokasi kecemasan','Bantu mangsa'],optional:['Kawal kawasan'],cooldown:'Kecemasan'},
-{title:'Kes Tangkapan',kind:'Tangkapan',detail:'Cari suspek, hentikan kenderaan suspek dan lakukan tangkapan.',reward:500,xp:90,seconds:110,mandatory:['Cari suspek','Hentikan suspek','Sahkan tangkapan'],optional:['Elakkan pelanggaran'],cooldown:'Tangkapan'},
-{title:'Semakan Aduan Penduduk',kind:'Bantuan awam',detail:'Siasat aduan bunyi dan catat maklumat saksi.',reward:220,xp:40,seconds:125,mandatory:['Pergi ke alamat','Bercakap dengan pengadu'],optional:['Catat saksi tambahan'],cooldown:'Bantuan awam'}];
-const targets=[{x:320,y:270,label:'Taman Harmoni'},{x:1310,y:300,label:'Persimpangan Utama'},{x:1400,y:850,label:'Kedai Runcit'},{x:430,y:970,label:'Dataran Awam'},{x:1540,y:1030,label:'Laluan Industri'},{x:830,y:280,label:'Kampung Sentosa'}];
-let missions:Mission[]=[];let npcList:{x:number;y:number;kind:string;speed:number;phase:number}[]=[];let traffic:{x:number;y:number;dir:number;speed:number;police:boolean}[]=[];let buildings:{x:number;y:number;w:number;h:number;kind:string;color:string}[]=[];
-function seedWorld(){buildings=[];npcList=[];traffic=[];const rural=save.region==='Luar Bandar';for(let y=80;y<world.h-100;y+=rural?260:190){for(let x=70;x<world.w-100;x+=rural?310:230){if(Math.abs(x-world.w/2)<150||Math.abs(y-world.h/2)<120||targets.some(t=>Math.hypot(x-t.x,y-t.y)<145)||Math.hypot(x-240,y-165)<180||Math.hypot(x-145,y-940)<120)continue;buildings.push({x,y,w:rural?100:120,h:rural?80:100,kind:Math.random()>.65?'shop':'house',color:['#d6ad81','#f0d6a7','#b5d3cb','#c8bedf','#e9aaa0'][Math.floor(Math.random()*5)]});}}for(let i=0;i<20;i++)npcList.push({x:120+Math.random()*1680,y:100+Math.random()*1080,kind:i%4===0?'officer':'civilian',speed:8+Math.random()*12,phase:Math.random()*6});for(let i=0;i<(rural?7:16);i++)traffic.push({x:Math.random()*world.w,y:i%2?world.h/2-35:world.h/2+35,dir:i%2?1:-1,speed:25+Math.random()*35,police:i===0});}
-function seedMissions(){if(save.missionState?.length===3&&save.missionState.every(m=>m&&typeof m.id==='string'&&Array.isArray(m.mandatory))){missions=save.missionState.map(m=>({...m,mandatory:[...m.mandatory],optional:[...m.optional]}));return;}const count=3;missions=[];const eligible=missionTemplates.filter(t=>!save.missionCooldowns.includes(t.cooldown));const pool=(eligible.length?eligible:missionTemplates).slice();for(let i=0;i<count;i++){const ix=Math.floor(Math.random()*pool.length),t=pool.splice(ix,1)[0]||missionTemplates[i];const target=targets[(i+save.day+Math.floor(Math.random()*targets.length))%targets.length];missions.push({id:`D${save.day}-M${Date.now().toString(36)}-${i}`,title:t.title,kind:t.kind,detail:t.detail,reward:Math.round(t.reward*(isEasy()?0.8:isHard()?1.25:1)),xp:t.xp,seconds:Math.round(t.seconds*difficultyScale()),mandatory:[...t.mandatory],optional:[...t.optional],x:target.x,y:target.y,status:'available',step:0,deadline:0,cooldown:t.cooldown});}}
-seedWorld();seedMissions();if(save.activeMissionId){activeMission=missions.find(m=>m.id===save.activeMissionId&&m.status==='active')||null;if(activeMission)missionTimer=Math.max(1,activeMission.deadline||activeMission.seconds);}
-function draw(){
- const w=canvas.width,h=canvas.height,rural=save.region==='Luar Bandar';ctx.clearRect(0,0,w,h);ctx.save();ctx.scale(w/960,h/640);
- cameraX=Math.max(0,Math.min(world.w-960,playerX-480));cameraY=Math.max(0,Math.min(world.h-640,playerY-320));ctx.translate(-cameraX,-cameraY);
- const R=(x:number,y:number,a:number,b:number,c:string)=>{ctx.fillStyle=c;ctx.fillRect(Math.round(x),Math.round(y),Math.round(a),Math.round(b));};
- const L=(x:number,y:number,a:number,b:number,c:string,t=2)=>{ctx.strokeStyle=c;ctx.lineWidth=t;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(a,b);ctx.stroke();};
- const T=(s:string,x:number,y:number,z=10,c='#f7f0df')=>{ctx.fillStyle=c;ctx.font='bold '+z+'px monospace';ctx.fillText(s,x,y);};
- // Rich, dithered tropical ground.
- R(0,0,world.w,world.h,rural?'#78956a':'#6c936c');for(let x=0;x<world.w;x+=28)for(let y=0;y<world.h;y+=28){let q=(x*7+y*13)%13;if(q<3)R(x+(y%9),y+(x%7),5,3,rural?'#8ca879':'#7ca071');else if(q===8)R(x+13,y+17,3,3,'#567d59');}
- // Sidewalks, curbs, drains and asphalt.
- R(0,world.h/2-88,world.w,176,'#b5a994');R(0,world.h/2-70,world.w,140,'#343d47');R(world.w/2-88,0,176,world.h,'#b5a994');R(world.w/2-70,0,140,world.h,'#343d47');
- if(rural){R(0,world.h*.22-10,world.w,90,'#b5a994');R(0,world.h*.22,world.w,70,'#39434b');R(240,0,90,world.h,'#b5a994');R(250,0,70,world.h,'#39434b');}
- L(0,world.h/2-72,world.w,world.h/2-72,'#ded1b0',4);L(0,world.h/2+72,world.w,world.h/2+72,'#ded1b0',4);L(world.w/2-72,0,world.w/2-72,world.h,'#ded1b0',4);L(world.w/2+72,0,world.w/2+72,world.h,'#ded1b0',4);
- ctx.strokeStyle='#e6c45c';ctx.lineWidth=3;ctx.setLineDash([24,18]);ctx.beginPath();ctx.moveTo(0,world.h/2);ctx.lineTo(world.w,world.h/2);ctx.moveTo(world.w/2,0);ctx.lineTo(world.w/2,world.h);ctx.stroke();ctx.setLineDash([]);
- for(let i=0;i<8;i++){R(world.w/2-65+i*18,world.h/2-64,10,39,'#e8e5d8');R(world.w/2-65+i*18,world.h/2+25,10,39,'#e8e5d8');}
- for(let x=0;x<world.w;x+=96){R(x,world.h/2-83,28,4,'#4c565a');R(x+34,world.h/2+79,24,4,'#4c565a');}
- // Building kit: shadow, foundations, textured roof, divided windows, doors and shop awnings.
- for(const b of buildings){
-  R(b.x+8,b.y+10,b.w,b.h,'rgba(18,25,27,.35)');R(b.x-4,b.y+b.h-4,b.w+8,8,'#a89d87');R(b.x,b.y,b.w,b.h,b.color);R(b.x+5,b.y+5,b.w-10,b.h-10,'#cfc6ae');
-  R(b.x-3,b.y-5,b.w+6,18,b.kind==='shop'?'#39434b':'#4b5155');R(b.x,b.y-3,b.w,5,b.kind==='shop'?'#a65d47':'#777c7b');
-  for(let tx=b.x+5;tx<b.x+b.w-5;tx+=13){L(tx,b.y,tx,b.y+10,'#657078',1);L(tx,b.y+9,tx+7,b.y+9,'#343e47',1);}
-  const wy=b.y+24;for(let wx=b.x+12;wx<b.x+b.w-18;wx+=38){R(wx+2,wy+2,23,24,'#37454d');R(wx,wy,23,22,'#4d8493');R(wx+3,wy+3,17,16,'#8eb9be');L(wx+11,wy,wx+11,wy+22,'#d2d1bf',2);L(wx,wy+11,wx+23,wy+11,'#d2d1bf',2);}
-  R(b.x+9,b.y+b.h-35,23,31,'#57483c');R(b.x+12,b.y+b.h-32,17,24,'#987b5c');R(b.x+2,b.y+b.h-5,b.w-4,4,'#5b615e');
-  if(b.kind==='shop'){R(b.x+3,b.y+Math.max(54,b.h*.55),b.w-6,17,'#e5c66d');R(b.x+3,b.y+Math.max(54,b.h*.55),b.w-6,3,'#fff0b6');for(let ax=b.x+5;ax<b.x+b.w-6;ax+=12)R(ax,b.y+Math.max(57,b.h*.55+3),5,12,'#b84e43');T('KEDAI',b.x+8,b.y+Math.max(67,b.h*.55+12),9,'#26343d');}
- } 
-  // Pixel-art building sprites.
-  for (const b of buildings) {
-    const spriteName = b.kind === 'shop' ? 'shop' : 'house';
 
-    drawSprite(
-      ctx,
-      spriteName,
-      b.x,
-      b.y - 8,
-      b.w,
-      b.h + 8,
-    );
+type Mission = {
+  name: string;
+  x: number;
+  y: number;
+  reward: number;
+  done: boolean;
+};
+
+const app = document.getElementById('app') ?? document.body;
+
+document.documentElement.style.cssText =
+  'margin:0;background:#101820;color:#fff;font-family:Arial,sans-serif';
+document.body.style.cssText = 'margin:0;overflow:hidden';
+
+app.innerHTML = `
+<style>
+*{box-sizing:border-box}
+#game{height:100dvh;display:flex;flex-direction:column;background:#101820}
+#top{padding:10px 14px;background:#172b3a;display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap}
+#stats{display:flex;gap:12px;flex-wrap:wrap;font-size:13px}
+#world{position:relative;flex:1;min-height:0;background:#57865c}
+canvas{width:100%;height:100%;display:block;image-rendering:pixelated;touch-action:none}
+#bottom{background:#172b3a;padding:10px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+button{background:#e6b84a;color:#17202a;border:0;border-radius:9px;padding:11px 14px;font-weight:bold;cursor:pointer}
+button:active{transform:scale(.96)}
+#controls{position:absolute;bottom:12px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:end;pointer-events:none}
+.pad{display:grid;grid-template-columns:46px 46px 46px;grid-template-rows:42px 42px 42px;gap:4px;pointer-events:auto}
+.pad button,.action button{padding:0;background:#152b3bd9;color:white;border:1px solid #ffffff66;font-size:18px}
+.pad .up{grid-column:2;grid-row:1}.pad .left{grid-column:1;grid-row:2}.pad .down{grid-column:2;grid-row:2}.pad .right{grid-column:3;grid-row:2}
+.action{display:flex;flex-direction:column;gap:8px;pointer-events:auto}
+.action button{padding:12px;font-size:12px}
+#message{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:#102432eF;padding:10px 14px;border-radius:8px;text-align:center;max-width:90%;font-size:13px;display:none}
+#panel{position:absolute;inset:0;background:#08121ddd;display:flex;align-items:center;justify-content:center;padding:20px}
+#card{max-width:430px;width:100%;background:#203746;border:1px solid #577181;border-radius:15px;padding:22px;text-align:center}
+#card h2{margin-top:0;color:#f3ca68}
+.small{font-size:12px;color:#b8cbd4;line-height:1.6}
+@media(min-width:800px){#controls{left:22px;right:22px}.pad{transform:scale(1.1);transform-origin:bottom left}}
+</style>
+<div id="game">
+  <div id="top">
+    <strong>🚔 MALAYSIAN POLICE VIRTUAL</strong>
+    <div id="stats">
+      <span>💵 RM <b id="cash">500</b></span>
+      <span>⭐ XP <b id="xp">0</b></span>
+      <span>🎖️ <b id="rank">Konstabel</b></span>
+    </div>
+  </div>
+  <div id="world">
+    <canvas id="canvas"></canvas>
+    <div id="message"></div>
+    <div id="controls">
+      <div class="pad">
+        <button class="up" data-dir="up">▲</button>
+        <button class="left" data-dir="left">◀</button>
+        <button class="down" data-dir="down">▼</button>
+        <button class="right" data-dir="right">▶</button>
+      </div>
+      <div class="action">
+        <button id="interact">INTERAKSI</button>
+        <button id="patrol">MULA RONDA</button>
+      </div>
+    </div>
+    <div id="panel">
+      <div id="card">
+        <h2>MALAYSIAN POLICE VIRTUAL</h2>
+        <p>Selamat datang, anggota polis.</p>
+        <p class="small">Jalankan rondaan, lengkapkan tugasan dan kumpulkan ganjaran untuk meningkatkan pangkat.</p>
+        <p class="small">Gerakkan anggota menggunakan butang arah atau kekunci WASD / anak panah. Dekati penanda tugasan untuk berinteraksi.</p>
+        <button id="start">MULA BERTUGAS</button>
+      </div>
+    </div>
+  </div>
+  <div id="bottom">
+    <div><b id="missionTitle">Tugasan:</b><br><span class="small" id="missionText">Mulakan syif untuk menerima tugasan.</span></div>
+    <button id="save">SIMPAN</button>
+  </div>
+</div>
+`;
+
+const canvas = document.querySelector<HTMLCanvasElement>('#canvas')!;
+const ctx = canvas.getContext('2d')!;
+const $ = (id: string) => document.getElementById(id)!;
+
+type SaveData = {
+  x: number; y: number; cash: number; xp: number; completed: number;
+};
+
+const defaultSave: SaveData = {
+  x: 500, y: 400, cash: 500, xp: 0, completed: 0
+};
+
+let save: SaveData = { ...defaultSave };
+try {
+  const stored = localStorage.getItem('mpv-save');
+  if (stored) save = { ...defaultSave, ...JSON.parse(stored) };
+} catch {}
+
+let started = false;
+let patrolActive = false;
+let messageTimer = 0;
+let lastTime = 0;
+const keys = new Set<string>();
+const pressed = new Set<string>();
+
+const missions: Mission[] = [
+  { name: 'Periksa balai polis', x: 220, y: 180, reward: 100, done: false },
+  { name: 'Bantu orang awam', x: 760, y: 300, reward: 150, done: false },
+  { name: 'Periksa kenderaan', x: 1100, y: 650, reward: 200, done: false },
+  { name: 'Selesaikan rondaan', x: 1500, y: 250, reward: 250, done: false }
+];
+
+const buildings = [
+  { x: 70, y: 65, w: 175, h: 90, color: '#d8c49a', label: 'KEDAI' },
+  { x: 275, y: 65, w: 145, h: 100, color: '#a6b7bd', label: 'KLINIK' },
+  { x: 60, y: 260, w: 170, h: 115, color: '#c8d0d4', label: 'BALAI POLIS' },
+  { x: 300, y: 265, w: 150, h: 95, color: '#d6aa7e', label: 'KEDAI' },
+  { x: 650, y: 80, w: 160, h: 100, color: '#c2c9b1', label: 'RUMAH' },
+  { x: 900, y: 100, w: 190, h: 120, color: '#d6bca1', label: 'PASAR MINI' },
+  { x: 650, y: 500, w: 170, h: 100, color: '#a8b9c8', label: 'PEJABAT' },
+  { x: 1050, y: 480, w: 175, h: 105, color: '#d5c8a4', label: 'KEDAI' },
+  { x: 1350, y: 80, w: 170, h: 105, color: '#c9c2b8', label: 'RUMAH' },
+  { x: 1400, y: 480, w: 180, h: 110, color: '#aebfc2', label: 'KLINIK' }
+];
+
+const trees = Array.from({ length: 65 }, (_, i) => ({
+  x: 30 + ((i * 197) % 1750),
+  y: 25 + ((i * 131) % 850)
+})).filter(t =>
+  !buildings.some(b =>
+    t.x > b.x - 20 && t.x < b.x + b.w + 20 &&
+    t.y > b.y - 20 && t.y < b.y + b.h + 20
+  )
+);
+
+function resize() {
+  const rect = canvas.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+  canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+window.addEventListener('resize', resize);
+resize();
+
+function notify(text: string) {
+  const el = $('message');
+  el.textContent = text;
+  el.style.display = 'block';
+  messageTimer = 3;
+}
+
+function saveGame() {
+  try {
+    localStorage.setItem('mpv-save', JSON.stringify(save));
+    notify('Permainan berjaya disimpan pada peranti ini.');
+  } catch {
+    notify('Simpanan tidak tersedia dalam pelayar ini.');
+  }
+  updateHUD();
+}
+
+function updateHUD() {
+  $('cash').textContent = save.cash.toLocaleString('en-MY');
+  $('xp').textContent = String(save.xp);
+  const ranks = [
+    [0, 'Konstabel'],
+    [100, 'Lans Koperal'],
+    [300, 'Koperal'],
+    [600, 'Sarjan'],
+    [1000, 'Sarjan Mejar'],
+    [1600, 'Inspektor']
+  ] as const;
+
+  $('rank').textContent =
+    [...ranks].reverse().find(r => save.xp >= r[0])?.[1] ?? 'Konstabel';
+
+  const next = missions.find(m => !m.done);
+  $('missionTitle').textContent = next ? 'Tugasan semasa:' : 'Semua tugasan selesai!';
+  $('missionText').textContent = next
+    ? `${next.name} — ganjaran RM${next.reward}`
+    : 'Tahniah! Teruskan rondaan untuk bermain lagi.';
+}
+
+function nearestMission() {
+  return missions
+    .filter(m => !m.done)
+    .map(m => ({ m, d: Math.hypot(m.x - save.x, m.y - save.y) }))
+    .sort((a, b) => a.d - b.d)[0];
+}
+
+function interact() {
+  if (!started) return;
+
+  const nearby = nearestMission();
+  if (nearby && nearby.d < 95) {
+    nearby.m.done = true;
+    save.cash += nearby.m.reward;
+    save.xp += 100;
+    save.completed++;
+    notify(`Tugasan selesai! +RM${nearby.m.reward} dan +100 XP.`);
+    updateHUD();
+    return;
   }
 
- // Main station: glass entrance, columns, forecourt and readable sign.
- R(140,88,240,145,'#8d9893');R(150,78,220,142,'#d0cfc2');R(143,74,234,24,'#3c4650');R(156,99,208,110,'#b7c1b7');
- for(let x=166;x<354;x+=38){R(x,119,26,27,'#3d535e');R(x+3,122,20,21,'#78a4ae');L(x+13,121,x+13,145,'#d1d3c4',2);}
- R(224,159,52,50,'#42515b');R(229,164,42,45,'#6c5848');R(230,165,40,20,'#8eb8bc');R(185,88,150,25,'#173d68');T('BALAI POLIS',196,105,15,'#fff4dc');R(202,216,116,8,'#ddd3bc');for(let x=207;x<320;x+=12)R(x,214,3,13,'#5d6663');
- // House in the wider map.
- R(84,895,132,99,'#66584b');R(90,902,120,82,'#d5b18a');R(79,888,142,20,'#7f4239');for(let x=86;x<218;x+=14)L(x,891,x+10,904,'#b76d53',2);R(99,925,25,39,'#634a3a');R(146,919,22,18,'#4a8290');R(149,922,16,12,'#a9c9c5');T(save.homeOwned?'RUMAH SAYA':'RUMAH',95,918,10,'#fff6df');
- // Layered tropical canopy with trunks, highlights and shadows.
- 
- for (let x = 48; x < world.w; x += 155) {
-   for (let y = 45; y < world.h; y += 155) {
-     if (
-       Math.abs(x - world.w / 2) < 105 ||
-       Math.abs(y - world.h / 2) < 100
-     ) {
-       continue;
-     }
+  const station = buildings.find(b =>
+    b.label === 'BALAI POLIS' &&
+    Math.hypot((b.x + b.w / 2) - save.x, (b.y + b.h / 2) - save.y) < 150
+  );
 
-     const drawn = drawSprite(
-       ctx,
-       'tree',
-       x - 32,
-       y - 32,
-       64,
-       64,
-     );
-
-     if (!drawn) {
-       R(x - 5, y + 5, 10, 18, '#604833');
-       R(x - 14, y - 9, 28, 23, '#28583e');
-       R(x - 19, y - 17, 38, 25, '#39764a');
-       R(x - 11, y - 23, 22, 17, '#4f8b4f');
-     }
-   }
- }
-
- // Street lights and signal heads.
- for(const p of [{x:world.w/2-112,y:world.h/2-90},{x:world.w/2+106,y:world.h/2+88},{x:world.w/2+102,y:world.h/2-92}]){R(p.x,p.y,4,25,'#3c454b');R(p.x-5,p.y-4,14,7,'#5a6467');R(p.x-3,p.y-3,5,3,'#f3d68a');}
- R(world.w/2+82,world.h/2-56,9,28,'#28343b');R(world.w/2+84,world.h/2-52,5,5,'#d84b43');R(world.w/2+84,world.h/2-44,5,5,'#d9b94f');R(world.w/2+84,world.h/2-36,5,5,'#5aaf76');
- // Traffic with tires, windows, highlights and police markings.
- for(const c of traffic){const police=!!c.police;R(c.x-20,c.y-10,40,23,'rgba(0,0,0,.3)');R(c.x-22,c.y-9,7,7,'#171d22');R(c.x+15,c.y-9,7,7,'#171d22');R(c.x-19,c.y-11,38,21,police?'#e6e7df':'#c9b69a');R(c.x-11,c.y-8,22,15,police?'#183d62':'#63818a');R(c.x-8,c.y-7,16,5,'#9cc1c6');R(c.x-8,c.y+1,16,4,'#35434c');if(police){R(c.x-4,c.y-14,8,4,siren?'#d94c43':'#287dc0');R(c.x-13,c.y-2,26,4,'#193d63');T('P',c.x-3,c.y+2,7,'#fff');}else{R(c.x-16,c.y-7,3,4,'#e8e4cf');R(c.x+13,c.y-7,3,4,'#d44c40');}}
- // Officers and civilians with consistent outlines and uniform palette.
- for(const n of npcList){R(n.x-7,n.y+5,14,5,'rgba(0,0,0,.25)');R(n.x-6,n.y-1,5,8,'#202a32');R(n.x+1,n.y-1,5,8,'#202a32');R(n.x-7,n.y-10,14,11,n.kind==='officer'?'#183d5a':'#b9a18a');R(n.x-5,n.y-17,10,8,'#d7a57c');R(n.x-6,n.y-20,12,5,n.kind==='officer'?'#152c43':'#43352b');if(n.kind==='officer'){R(n.x-6,n.y-9,12,3,'#2f5c79');R(n.x-2,n.y-7,4,4,'#d8b44d');R(n.x+6,n.y-7,3,7,'#27353d');}else R(n.x-5,n.y-7,10,3,'#8b6650');}
- // Mission markers remain legible but compact.
- for(const m of missions){if(m.status==='done'||m.status==='failed')continue;const pulse=15+Math.sin(elapsed*3)*2;R(m.x-13,m.y-13,26,26,'rgba(18,28,34,.2)');ctx.fillStyle=m.status==='active'?'#e45d4f':'#e7c653';ctx.beginPath();ctx.moveTo(m.x,m.y-pulse);ctx.lineTo(m.x+pulse,m.y);ctx.lineTo(m.x,m.y+pulse);ctx.lineTo(m.x-pulse,m.y);ctx.closePath();ctx.fill();T(m.status==='active'?'!':'?',m.x-4,m.y+5,14,'#17252d');}
- if(save.pendingIncident){R(playerX+65,playerY-82,26,26,'#b93c3b');T('!',playerX+75,playerY-63,16,'#fff');}
- // Player and patrol car match the same detailed pixel palette.
- if(save.inVehicle){R(carX-26,carY-15,52,31,'rgba(0,0,0,.3)');R(carX-25,carY-12,50,25,'#17232d');R(carX-22,carY-14,44,25,'#e6e7df');R(carX-14,carY-11,28,19,'#183d62');R(carX-11,carY-9,22,7,'#91b8c3');R(carX-11,carY+1,22,5,'#33444c');R(carX-6,carY-17,12,4,siren?'#e24d43':'#2b82ce');R(carX-18,carY-9,4,4,'#f2e7bd');R(carX+14,carY-9,4,4,'#e24d43');R(carX-4,carY+7,8,3,'#193c61');T('P',carX-3,carY+5,7,'#fff');}else{R(playerX-8,playerY+7,16,5,'rgba(0,0,0,.24)');R(playerX-7,playerY+1,5,9,'#202a31');R(playerX+2,playerY+1,5,9,'#202a31');R(playerX-8,playerY-10,16,12,'#173e5d');R(playerX-6,playerY-18,12,9,'#d4a078');R(playerX-8,playerY-21,16,5,'#172e47');R(playerX-3,playerY-20,6,2,'#c7a64e');R(playerX-8,playerY-8,3,9,'#294f69');R(playerX+5,playerY-8,3,9,'#294f69');R(playerX-2,playerY-5,4,5,'#d5b14f');}
- ctx.restore();
- // Compact minimap.
- R(790,18,150,100,'rgba(12,28,38,.92)');ctx.strokeStyle='#a7c2c6';ctx.lineWidth=2;ctx.strokeRect(790,18,150,100);R(798,25,134,86,rural?'#7e9b6b':'#70966b');R(798,62,134,12,'#343d48');R(857,25,12,86,'#343d48');for(const b of buildings)R(798+b.x/world.w*134,25+b.y/world.h*86,Math.max(2,b.w/world.w*134),Math.max(2,b.h/world.h*86),'#c6b89e');for(const m of missions.filter(m=>m.status==='available'||m.status==='active'))R(798+m.x/world.w*134-2,25+m.y/world.h*86-2,4,4,'#f5ce5b');R(798+playerX/world.w*134-3,25+playerY/world.h*86-3,6,6,'#dc554d');T('PETA KECIL',800,14,10,'#fff');
+  if (station) {
+    notify('Balai polis: pastikan semua tugasan rondaan diselesaikan.');
+  } else {
+    notify('Tiada tugasan berdekatan. Bergerak ke penanda kuning.');
+  }
 }
-function tick(t:number){requestAnimationFrame(tick);const dt=Math.min(.05,(t-frameLast)/1000||0);frameLast=t;if(!modalOpen&&!paused){elapsed+=dt;if(save.shiftActive){save.shiftSeconds=Math.max(0,save.shiftSeconds-dt);if(save.shiftSeconds<=0&&!shiftEndHandled)endShift();}if(activeMission&&activeMission.status==='active'){missionTimer=Math.max(0,missionTimer-dt);activeMission.deadline=missionTimer;if(missionTimer<=0)failMission(activeMission,'Masa tugasan tamat. Objektif wajib belum lengkap.');}if(save.pendingIncident&&majorIncidentTimer>0)majorIncidentTimer=Math.max(0,majorIncidentTimer-dt);movePlayer(dt);moveNpcs(dt);moveTraffic(dt);if(save.shiftActive&&elapsed-chatTimer>30+Math.random()*20){chatTimer=elapsed;maybeChat();}if(save.shiftActive&&elapsed-lastAutosave>5){lastAutosave=elapsed;persist();}if(save.shiftActive&&elapsed>90&&elapsed-incidentSeen>150){incidentSeen=elapsed;triggerIncident();}if(save.shiftActive&&elapsed-chatDismissAt>1&&save.chatHistory.length&&document.querySelector('#chatToast')){const e=document.querySelector('#chatToast');if(e)e.remove();}}draw();}
-function movePlayer(dt:number){let dx=0,dy=0;if(keys.has('w')||keys.has('arrowup'))dy--;if(keys.has('s')||keys.has('arrowdown'))dy++;if(keys.has('a')||keys.has('arrowleft'))dx--;if(keys.has('d')||keys.has('arrowright'))dx++;dx+=touch.x;dy+=touch.y;const mag=Math.hypot(dx,dy);if(mag){dx/=mag;dy/=mag;const speed=save.inVehicle?170:(runHeld?110:70);const nx=playerX+dx*speed*dt,ny=playerY+dy*speed*dt;if(!collides(nx,playerY))playerX=clamp(nx,20,world.w-20);if(!collides(playerX,ny))playerY=clamp(ny,20,world.h-20);if(save.inVehicle){carX=playerX;carY=playerY;}}save.walkX=playerX;save.walkY=playerY;const near=missions.filter(m=>m.status==='available'||m.status==='active').sort((a,b)=>distance(a)-distance(b))[0];const d=near?distance(near):999;document.querySelector('#nearby')!.textContent=near&&d<60?`${near.title} · tekan INTERAKSI untuk objektif.`:distancePoint(240,165)<70?'Balai Polis Sentosa · INTERAKSI untuk taklimat.':distancePoint(145,940)<70?'Rumah · INTERAKSI untuk masuk.':save.inVehicle?'Kenderaan polis · pandu secara manual.':'Bergerak ke penanda tugasan atau fasiliti.';document.querySelector('#vehicleBtn')!.textContent=save.inVehicle?'KELUAR KENDERAAN':'MASUK KENDERAAN';document.querySelector('#captureBtn')!.classList.toggle('hidden',!(activeMission?.kind==='Tangkapan'&&save.inVehicle&&distance(activeMission)<120));}
-function collides(x:number,y:number){return buildings.some(b=>x>b.x-15&&x<b.x+b.w+15&&y>b.y-15&&y<b.y+b.h+15);}
-function moveNpcs(dt:number){for(const n of npcList){n.phase+=dt;n.x+=Math.cos(n.phase)*n.speed*dt;n.y+=Math.sin(n.phase*.8)*n.speed*dt;n.x=clamp(n.x,20,world.w-20);n.y=clamp(n.y,20,world.h-20);if(siren&&Math.hypot(n.x-playerX,n.y-playerY)<110){n.x+=Math.sign(n.x-playerX)*25*dt;n.y+=Math.sign(n.y-playerY)*25*dt;}}}
-function moveTraffic(dt:number){for(const c of traffic){const near=Math.hypot(c.x-playerX,c.y-playerY);let speed=c.speed;if(siren&&near<170)speed*=.35;const nx=c.x+c.dir*speed*dt;if(c.y>world.h/2-80&&c.y<world.h/2+80)c.x=nx;else c.y+=c.dir*speed*dt;if(c.x>world.w+30)c.x=-30;if(c.x<-30)c.x=world.w+30;if(Math.hypot(c.x-playerX,c.y-playerY)<20&&save.inVehicle){save.orgRep=Math.max(0,save.orgRep-1);toast('Pelanggaran pemanduan: rating pemanduan berkurang.');c.x+=c.dir*80;}}}
-function distance(m:Mission){return Math.hypot(playerX-m.x,playerY-m.y)}function distancePoint(x:number,y:number){return Math.hypot(playerX-x,playerY-y)}function clamp(n:number,a:number,b:number){return Math.max(a,Math.min(b,n));}
-function toast(message:string){const e=document.querySelector<HTMLDivElement>('#toast')!;e.textContent=message;e.classList.remove('hidden');window.setTimeout(()=>e.classList.add('hidden'),3600);}
-function modal(title:string,desc:string,body:string,eyebrow='PUSAT OPERASI'){document.querySelector('#modalTitle')!.textContent=title;document.querySelector('#modalDesc')!.textContent=desc;document.querySelector('#modalEyebrow')!.textContent=eyebrow;document.querySelector('#modalBody')!.innerHTML=body;document.querySelector('#modalBackdrop')!.classList.remove('hidden');modalOpen=true;}
-function closeModal(){document.querySelector('#modalBackdrop')!.classList.add('hidden');modalOpen=false;}
-function newCareerScreen(){modal('Mulakan kerjaya baharu','Pilih kawasan operasi dan tahap kesukaran. Kerjaya lama hanya akan diganti selepas pengesahan.',`<div class="formgrid"><label>Wilayah operasi<select id="newRegion"><option>Bandar</option><option>Luar Bandar</option></select></label><label>Kesukaran<select id="newDifficulty"><option>Mudah</option><option selected>Sederhana</option><option>Sukar</option></select></label></div><div class="info-box"><b>Permulaan kerjaya</b><p>Anda bermula sebagai Konstabel dengan kenderaan rondaan asas. Syif 12 minit hanya bermula selepas taklimat dan butang MULA BERTUGAS.</p></div><button class="primary" id="createCareer">MULAKAN KERJAYA</button><button class="secondary full" id="continueCareer" ${save.careerStarted?'':'disabled'}>SAMBUNG KERJAYA SEDIA ADA</button>`,'KERJAYA');document.querySelector('#createCareer')!.addEventListener('click',()=>{const region=(document.querySelector('#newRegion') as HTMLSelectElement).value as Region;const difficulty=(document.querySelector('#newDifficulty') as HTMLSelectElement).value as Difficulty;if(save.careerStarted){modal('Gantikan kerjaya sedia ada?','Kerjaya ini akan digantikan. Tindakan tidak boleh dibatalkan.',`<button class="danger full" id="confirmNew">GANTIKAN & MULAKAN</button><button class="secondary full" id="cancelNew">BATAL</button>`,'PENGESAHAN');document.querySelector('#confirmNew')!.addEventListener('click',()=>{save=freshSave(region,difficulty);startCareer();});document.querySelector('#cancelNew')!.addEventListener('click',newCareerScreen);}else{save=freshSave(region,difficulty);startCareer();}});document.querySelector('#continueCareer')?.addEventListener('click',()=>{closeModal();renderUI();if(save.shiftActive)toast('Syif disambung dengan baki masa tersimpan.');else briefing();});}
-function startCareer(){save.careerStarted=true;playerX=save.walkX=240;playerY=save.walkY=165;carX=280;carY=220;seedWorld();seedMissions();persist();renderUI();briefing();}
-function briefing(){modal(`Taklimat Hari ${save.day}`,`Wilayah ${save.region} · Kesukaran ${save.difficulty}. Semak sasaran dan mulakan apabila bersedia.`, `<div class="briefgrid"><div><small>SASARAN SYIF</small><b>Lengkapkan tugasan dan kendalikan insiden</b></div><div><small>GAJI HARI INI</small><b>RM ${salaryForRank().toLocaleString()}</b></div><div><small>KENDERAAN</small><b>${save.ownedVehicles.join(', ')}</b></div><div><small>LAPORAN</small><b>${save.reports.filter(r=>r.status==='Belum lengkap').length} tertangguh</b></div></div><button class="primary" id="startDuty">MULA BERTUGAS</button><button class="secondary full" id="tutorialBtn">LIHAT TUTORIAL RINGKAS</button>`,'TAKLIMAT BALAI');document.querySelector('#startDuty')!.addEventListener('click',()=>{save.shiftActive=true;save.shiftSeconds=Math.min(720,save.shiftSeconds||720);shiftEndHandled=false;persist();closeModal();renderUI();toast('Syif bermula. Jaga keselamatan dan utamakan insiden utama.');});document.querySelector('#tutorialBtn')!.addEventListener('click',()=>tutorial());}
-function tutorial(){modal('Tutorial ringkas','Kawalan asas untuk mula bermain.',`<ul class="bullets"><li>WASD / anak panah atau butang skrin untuk bergerak.</li><li>Berjalan ke penanda tugasan, kemudian tekan INTERAKSI.</li><li>Objektif wajib perlu diselesaikan sebelum pemasa habis.</li><li>Berjalan ke kenderaan polis dan tekan MASUK KENDERAAN; keluar melalui butang yang sama.</li><li>Gaji dibayar sekali selepas tamat syif dan direkod dalam ringkasan harian.</li><li>Gunakan meja laporan di balai untuk melengkapkan laporan tertangguh.</li></ul><button class="primary" id="tutorialDone">FAHAM</button>`,'TUTORIAL');document.querySelector('#tutorialDone')!.addEventListener('click',()=>{save.seenTutorial=true;persist();briefing();});}
-function openMission(m:Mission){if(!save.shiftActive){toast('Mulakan syif dahulu melalui taklimat balai.');return;}if(activeMission&&activeMission.status==='active'&&activeMission.id!==m.id){toast('Selesaikan atau batalkan tugasan aktif dahulu.');return;}activeMission=m;if(m.status==='available'){m.status='active';m.step=0;missionTimer=m.seconds;save.activeMissionId=m.id;persist();}const obj=m.mandatory.map((o,i)=>`<li class="${i<m.step?'checked':''}">${i<m.step?'✓':'○'} ${o}</li>`).join('');modal(m.title,`${m.detail} · Baki masa ${Math.ceil(missionTimer)} saat.`, `<div class="missionmeta"><span>${m.kind}</span><span>Ganjaran RM ${m.reward}</span><span>+${m.xp} XP</span></div><h3>Objektif wajib</h3><ul class="objective-list">${obj}</ul><h3>Objektif pilihan</h3><ul>${m.optional.map(o=>`<li>${o}</li>`).join('')}</ul><div class="timerline"><span>MASA TINGGAL</span><b id="missionTimerText">${Math.ceil(missionTimer)}s</b></div><button class="primary" id="doObjective">${m.mandatory[m.step]?'LAKSANAKAN: '+m.mandatory[m.step]:'LENGKAPKAN TUGASAN'}</button><button class="secondary full" id="leaveMission">TUTUP & KEMBALI KE DUNIA</button>`,'TAKLIMAT MISI');document.querySelector('#doObjective')!.addEventListener('click',()=>doObjective(m));document.querySelector('#leaveMission')!.addEventListener('click',closeModal);}
-function doObjective(m:Mission){if(m.status!=='active')return;const dist=distance(m);if(dist>75){toast('Anda perlu berada berhampiran lokasi misi. Bergerak ke penanda di peta.');return;}if(m.kind==='Tangkapan'&&m.step===1&&!save.inVehicle){toast('Gunakan kenderaan polis untuk mengejar dan menghentikan suspek.');return;}m.step++;persist();if(m.step>=m.mandatory.length){completeMission(m);return;}openMission(m);}
-function replaceMissionSlot(old:Mission){const eligible=missionTemplates.filter(t=>t.cooldown!==old.cooldown&&!save.missionCooldowns.slice(-2).includes(t.cooldown));const pool=eligible.length?eligible:missionTemplates.filter(t=>t.cooldown!==old.cooldown);const t=pool[Math.floor(Math.random()*pool.length)]||missionTemplates[Math.floor(Math.random()*missionTemplates.length)];const target=targets[Math.floor(Math.random()*targets.length)];const fresh:Mission={id:`D${save.day}-M${Date.now().toString(36)}`,title:t.title,kind:t.kind,detail:t.detail,reward:Math.round(t.reward*(isEasy()?0.8:isHard()?1.25:1)),xp:t.xp,seconds:Math.round(t.seconds*difficultyScale()),mandatory:[...t.mandatory],optional:[...t.optional],x:target.x,y:target.y,status:'available',step:0,deadline:0,cooldown:t.cooldown};const index=missions.findIndex(x=>x.id===old.id);if(index>=0)missions[index]=fresh;}
-function completeMission(m:Mission){m.status='done';save.completedMissions++;save.xp+=m.xp;const optionalBonus=Math.random()<.45?Math.round(m.reward*.12):0;const score=Math.min(100,Math.round(72+Math.random()*24+(m.step===m.mandatory.length?5:0)));const cash=m.reward+optionalBonus;save.cash+=cash;save.publicRep=clamp(save.publicRep+(score>=90?2:score<70?-2:1),0,100);save.orgRep=clamp(save.orgRep+(score>=90?2:score<65?-2:1),0,100);save.morale=clamp(save.morale+(score>=85?2:-1),0,100);save.bestScore=Math.max(save.bestScore,score);save.missionCooldowns.push(m.cooldown);if(save.missionCooldowns.length>3)save.missionCooldowns.shift();if(m.kind==='Siasatan'||m.kind==='Tangkapan'||m.kind==='Kecemasan')save.reports.push({id:`R-${save.day}-${Date.now()}`,day:save.day,title:m.title,kind:m.kind,location:targets.find(t=>Math.abs(t.x-m.x)<1)?.label||save.region,status:'Belum lengkap',facts:[],bonusPaid:false});activeMission=null;save.activeMissionId='';replaceMissionSlot(m);const next=thresholds.findIndex((v,i)=>i>save.rank&&save.xp>=v);if(next>save.rank&&next>0){const eligible=save.completedMissions>=Math.max(2,next*2)&&save.publicRep>=55&&save.orgRep>=55;if(eligible){save.rank=next;toast(`TAHNIAH! Kenaikan pangkat ke ${ranks[next]}.`);}else toast('XP mencukupi, tetapi kenaikan pangkat menunggu rekod misi dan disiplin yang lebih baik.');}persist();renderUI();modal('Tugasan selesai',`${m.title} selesai. Skor prestasi ${score}/100.`, `<div class="resultgrid"><div><small>XP DITERIMA</small><b>+${m.xp} XP</b></div><div><small>GANJARAN</small><b>RM ${cash}</b></div><div><small>REPUTASI AWAM</small><b>${save.publicRep}/100</b></div><div><small>DISIPLIN</small><b>${save.orgRep}/100</b></div></div><p>${optionalBonus?'Bonus objektif pilihan: RM '+optionalBonus+'.':'Objektif wajib diselesaikan.'} XP yang sudah diperoleh tidak ditarik balik jika misi lain gagal.</p><button class="primary" id="resultOk">KEMBALI BERTUGAS</button>`,'KEPUTUSAN MISI');document.querySelector('#resultOk')!.addEventListener('click',closeModal);document.querySelector('#statusText')!.textContent=`${m.kind} selesai · +${m.xp} XP · RM ${cash}`;}
-function failMission(m:Mission,reason:string){m.status='failed';save.failedMissions++;save.publicRep=clamp(save.publicRep-1,0,100);save.morale=clamp(save.morale-2,0,100);activeMission=null;save.activeMissionId='';replaceMissionSlot(m);persist();renderUI();modal('Misi gagal',reason,`<p>XP yang diperoleh sebelum ini kekal. Ganjaran penuh tidak dibayar. Tugasan gagal diganti dengan tawaran baharu.</p><button class="primary" id="failOk">FAHAM</button>`,'PENILAIAN');document.querySelector('#failOk')!.addEventListener('click',closeModal);}
-function renderUI(){document.querySelector('#dayLabel')!.textContent=`HARI ${save.day}`;document.querySelector('#regionLabel')!.textContent=save.region==='Bandar'?'BANDAR SENTOSA':'LUAR BANDAR SENTOSA';document.querySelector('#rankName')!.textContent=ranks[save.rank]||ranks[0];document.querySelector('#careerTag')!.textContent=`${save.difficulty.toUpperCase()} · ${save.region.toUpperCase()}`;const lower=thresholds[save.rank]||0,upper=thresholds[save.rank+1]||thresholds[save.rank];document.querySelector('#xpLabel')!.textContent=`${save.xp.toLocaleString()} / ${upper.toLocaleString()} XP`; (document.querySelector('#xpBar') as HTMLElement).style.width=`${clamp((save.xp-lower)/Math.max(1,upper-lower)*100,0,100)}%`;document.querySelector('#cashLabel')!.textContent=`RM ${save.cash.toLocaleString()}`;document.querySelector('#salaryLabel')!.textContent=`RM ${salaryForRank().toLocaleString()}`;document.querySelector('#repLabel')!.textContent=String(save.publicRep);document.querySelector('#disciplineLabel')!.textContent=String(save.orgRep);document.querySelector('#moraleLabel')!.textContent=String(save.morale);document.querySelector('#apcLabel')!.textContent=String(save.apcCount);document.querySelector('#shiftLabel')!.textContent=save.shiftActive?'SEDANG BERTUGAS':'BELUM BERTUGAS';document.querySelector('#clockLabel')!.textContent=`${Math.floor(save.shiftSeconds/60).toString().padStart(2,'0')}:${Math.floor(save.shiftSeconds%60).toString().padStart(2,'0')}`;document.querySelector('#shiftProgress')!.textContent=save.shiftActive?`${Math.ceil(save.shiftSeconds)} saat berbaki`:'Belum bermula';const list=document.querySelector('#missionList')!;list.innerHTML=missions.map(m=>`<button class="missionrow ${m.status}" data-mid="${m.id}"><span class="missiondot">${m.status==='done'?'✓':m.status==='failed'?'×':m.status==='active'?'!':'◆'}</span><span class="missioncopy"><b>${m.title}</b><small>${m.kind} · ${m.status==='active'?'AKTIF':m.status==='done'?'SELESAI':m.status==='failed'?'GAGAL':`${m.seconds}s`}</small></span><strong>${m.status==='done'?'SELESAI':`RM ${m.reward}`}</strong></button>`).join('');list.querySelectorAll<HTMLButtonElement>('[data-mid]').forEach(b=>b.addEventListener('click',()=>{const m=missions.find(x=>x.id===b.dataset.mid);if(m&&(m.status==='available'||m.status==='active'))openMission(m);}));}
-function showBoard(){modal('Papan tugasan','Tiga pilihan misi tersedia mengikut pangkat, wilayah dan kesukaran. Tugasan baharu menggantikan slot yang selesai/gagal.',`<div class="allmissions">${missions.map(m=>`<button class="allmission" data-board="${m.id}" ${m.status==='done'||m.status==='failed'?'disabled':''}><b>${m.title}</b><small>${m.kind} · ${m.seconds}s · ${m.mandatory.length} objektif wajib</small><strong>${m.status==='active'?'AKTIF':'RM '+m.reward+' · '+m.xp+' XP'}</strong></button>`).join('')}</div>`,'PAPAN MISI');document.querySelectorAll<HTMLButtonElement>('[data-board]').forEach(b=>b.addEventListener('click',()=>{const m=missions.find(x=>x.id===b.dataset.board);if(m){closeModal();openMission(m);}}));}
-function endShift(){if(shiftEndHandled)return;shiftEndHandled=true;save.shiftActive=false;save.completedDays++;save.shiftSeconds=0;if(save.salaryPaidDay<save.day){const salary=salaryForRank();save.cash+=salary;save.salaryPaidDay=save.day;save.lastSummary=`Gaji RM ${salary} dibayar pada Hari ${save.day}.`; }if(save.completedDays>0&&save.completedDays%7===0){if(save.publicRep>=65&&save.orgRep>=65&&save.reports.filter(r=>r.status==='Belum lengkap').length<=2){save.apcCount++;save.cash+=250;toast('Anugerah Perkhidmatan Cemerlang (APC) diterima! +RM250.');}else toast('Penilaian APC: tingkatkan reputasi dan lengkapkan laporan tertangguh.');}persist();renderUI();dailySummary();}
-function dailySummary(){const pending=save.reports.filter(r=>r.status==='Belum lengkap').length;modal(`Ringkasan Hari ${save.day}`,'Syif selesai. Rekod gaji dan kemajuan disimpan secara automatik.',`<div class="summarygrid"><div><small>GAJI HARIAN</small><b>${save.salaryPaidDay===save.day?'DIBAYAR':'SUDAH DIREKOD'} · RM ${salaryForRank()}</b></div><div><small>MISI SELESAI</small><b>${save.completedMissions}</b></div><div><small>MISI GAGAL</small><b>${save.failedMissions}</b></div><div><small>LAPORAN TERTANGGUH</small><b>${pending}</b></div><div><small>XP TERKUMPUL</small><b>${save.xp}</b></div><div><small>BAKI WANG</small><b>RM ${save.cash.toLocaleString()}</b></div><div><small>REPUTASI / DISIPLIN</small><b>${save.publicRep} / ${save.orgRep}</b></div><div><small>APC</small><b>${save.apcCount}</b></div></div><p>Insiden yang belum selesai dan laporan tertangguh kekal dalam rekod kerjaya.</p><button class="primary" id="nextDay">TERUSKAN KE HARI ${save.day+1}</button><button class="secondary full" id="summaryReports">SEMAK LAPORAN</button>`,'RINGKASAN HARIAN');document.querySelector('#nextDay')!.addEventListener('click',()=>{save.day++;save.shiftSeconds=720;save.shiftActive=false;save.activeMissionId='';save.missionState=[];activeMission=null;shiftEndHandled=false;seedMissions();playerX=save.walkX=240;playerY=save.walkY=165;carX=280;carY=220;save.inVehicle=false;persist();renderUI();briefing();});document.querySelector('#summaryReports')!.addEventListener('click',showReports);}
-function triggerIncident(){if(save.pendingIncident||!save.shiftActive)return;const incidents=['Kemalangan jalan raya di Persimpangan Utama','Panggilan bantuan awam di Taman Harmoni','Kenderaan mencurigakan berhampiran kedai'];save.pendingIncident=incidents[Math.floor(Math.random()*incidents.length)];majorIncidentTimer=20;save.shiftActive=false;persist();modal('INSIDEN UTAMA',`${save.pendingIncident}. Baca maklumat dan pilih keutamaan. Pemasa syif dijeda semasa notifikasi ini dibuka.`, `<button class="primary" id="respondIncident">UTAMAKAN & RESPON</button><button class="secondary full" id="deferIncident">TANGGUH (KESAN PRESTASI)</button>`,'PUSAT KOMUNIKASI');document.querySelector('#respondIncident')!.addEventListener('click',()=>{save.shiftActive=true;save.pendingIncident='';closeModal();toast('Insiden diterima. Ikuti penanda insiden di peta.');save.publicRep=clamp(save.publicRep+1,0,100);persist();});document.querySelector('#deferIncident')!.addEventListener('click',()=>{save.shiftActive=true;save.pendingIncident='';save.publicRep=clamp(save.publicRep-2,0,100);save.morale=clamp(save.morale-2,0,100);closeModal();toast('Insiden ditangguh. Penilaian prestasi terjejas.');persist();});}
-function maybeChat(){const messages=['KPL Aiman: Siapa ambil stapler balai? Dari tadi cari.','SJN Bakar: Ada yang nak tapau nasi lemak lepas syif?','KPL Aiman: Tugasan bertambah, kopi makin kurang.','SJN Bakar: Jangan lupa isi buku log sebelum balik.','KPL Aiman: Siapa parking kereta dekat pintu belakang?'];const m=messages[Math.floor(Math.random()*messages.length)];save.chatHistory.push(`[Hari ${save.day}] ${m}`);save.chatHistory=save.chatHistory.slice(-24);persist();const old=document.querySelector('#chatToast');old?.remove();const e=document.createElement('div');e.id='chatToast';e.className='chat-toast';e.innerHTML=`<b>WhatsApp Dalaman Balai</b><span>${m}</span><button id="chatDismiss">×</button>`;document.querySelector('.shell')!.appendChild(e);document.querySelector('#chatDismiss')!.addEventListener('click',()=>e.remove());window.setTimeout(()=>e.remove(),5500);chatDismissAt=elapsed+5;}
-function showPhone(){modal('WhatsApp Dalaman Balai','Sejarah ringkas mesej dalaman. Mesej fiksyen ini tidak memerlukan balasan.',`<div class="chat-history">${(save.chatHistory.length?save.chatHistory:['Belum ada mesej. Mesej akan muncul secara berkala ketika bertugas.']).map(m=>`<p>${m}</p>`).join('')}</div><button class="primary" id="phoneClose">TUTUP</button>`,'KOMUNIKASI');document.querySelector('#phoneClose')!.addEventListener('click',closeModal);}
-function showReports(){
- const reports=save.reports;
- const body=reports.length ? `<div class="reportlist">${reports.map(r=>`<div class="reportrow"><div><b>${r.title}</b><small>Hari ${r.day} · ${r.kind} · ${r.location} · ${r.status}</small></div><button class="smallbtn" data-report="${r.id}" ${r.status==='Selesai'?'disabled':''}>${r.status==='Selesai'?'SELESAI':'LENGKAPKAN'}</button></div>`).join('')}</div>` : `<div class="info-box">Tiada laporan tertangguh. Sesetengah misi menghasilkan laporan wajib.</div>`;
- modal('Meja laporan','Pilih laporan mengikut hari dan status. Lengkapkan fakta ringkas yang diketahui.',body,'LAPORAN');
- document.querySelectorAll<HTMLButtonElement>('[data-report]').forEach(b=>b.addEventListener('click',()=>{const r=save.reports.find(x=>x.id===b.dataset.report);if(r)editReport(r);}));
+
+function startPatrol() {
+  if (!started) return;
+  patrolActive = !patrolActive;
+  $('patrol').textContent = patrolActive ? 'TAMATKAN RONDA' : 'MULA RONDA';
+
+  if (patrolActive) {
+    save.xp += 10;
+    notify('Rondaan bermula. Cari penanda tugasan kuning di bandar.');
+  } else {
+    notify('Rondaan ditamatkan.');
+  }
+  updateHUD();
 }
-function editReport(r:Report){modal(`Laporan: ${r.title}`,'Pilih fakta yang disahkan oleh misi. Jangan mereka-reka maklumat.',`<label class="checkline"><input type="checkbox" id="factLocation" ${r.facts.includes('Lokasi disahkan')?'checked':''}> Lokasi insiden disahkan</label><label class="checkline"><input type="checkbox" id="factWitness" ${r.facts.includes('Saksi direkod')?'checked':''}> Maklumat saksi direkod</label><label class="checkline"><input type="checkbox" id="factAction" ${r.facts.includes('Tindakan direkod')?'checked':''}> Tindakan pegawai direkod</label><button class="primary" id="submitReport">HANTAR LAPORAN</button><button class="secondary full" id="reportCancel">KEMBALI</button>`,'MEJA LAPORAN');document.querySelector('#submitReport')!.addEventListener('click',()=>{const facts:string[]=[];if((document.querySelector('#factLocation') as HTMLInputElement).checked)facts.push('Lokasi disahkan');if((document.querySelector('#factWitness') as HTMLInputElement).checked)facts.push('Saksi direkod');if((document.querySelector('#factAction') as HTMLInputElement).checked)facts.push('Tindakan direkod');if(facts.length<2){toast('Pilih sekurang-kurangnya dua fakta sebelum menghantar.');return;}r.facts=facts;r.status='Selesai';if(!r.bonusPaid){save.xp+=10;save.cash+=50;r.bonusPaid=true;}persist();renderUI();showReports();toast('Laporan disimpan. Bonus hanya dibayar sekali.');});document.querySelector('#reportCancel')!.addEventListener('click',showReports);}
-function showGarage(){modal('Garaj kenderaan','Kenderaan berbeza memberi fungsi berbeza. Pembelian menggunakan wang permainan.',`<div class="shoplist">${[{name:'Patrol Sedan',price:0,desc:'Kenderaan asas rondaan.'},{name:'SUV Polis',price:1800,desc:'Kenderaan lebih sesuai untuk laluan luar bandar.'},{name:'Van Khas',price:2600,desc:'Kenderaan sokongan operasi.'}].map(v=>`<div class="shoprow"><div><b>${v.name}</b><small>${v.desc}</small></div><strong>${v.price?'RM '+v.price:'DIMILIKI'}</strong><button class="smallbtn" data-car="${v.name}" data-price="${v.price}">${save.ownedVehicles.includes(v.name)?'PILIH':v.price?'BELI':'GUNA'}</button></div>`).join('')}</div><div class="info-box">Kenderaan peribadi dibeli berasingan melalui ekonomi peribadi.</div>`,'GARAj');document.querySelectorAll<HTMLButtonElement>('[data-car]').forEach(b=>b.addEventListener('click',()=>{const name=b.dataset.car!,price=Number(b.dataset.price);if(save.ownedVehicles.includes(name)){save.vehicle=name;closeModal();toast(`${name} dipilih.`);}else if(save.cash>=price){save.cash-=price;save.ownedVehicles.push(name);save.vehicle=name;persist();renderUI();showGarage();toast(`${name} dibeli.`);}else toast('Wang tidak mencukupi.');}));}
-function showHome(){modal('Kediaman peribadi','Lawati rumah, tukar pakaian awam dan urus ekonomi peribadi. Rumah tidak memberi bonus XP atau pangkat.',`<div class="info-box">${save.homeOwned?'Rumah anda sudah dimiliki.':'Rumah kecil untuk kehidupan peribadi.'}</div><div class="shoprow"><div><b>${save.homeOwned?'Masuk rumah':'Beli rumah'}</b><small>Interior ringkas, ruang tamu dan almari.</small></div><strong>${save.homeOwned?'DIMILIKI':'RM 4,000'}</strong><button class="smallbtn" id="buyHome">${save.homeOwned?'MASUK':'BELI'}</button></div><div class="shoprow"><div><b>Kereta peribadi</b><small>Kereta kompak untuk perjalanan luar tugas.</small></div><strong>RM 1,200</strong><button class="smallbtn" id="buyPersonalCar">${save.ownedCars.includes('Kereta Kompak')?'DIMILIKI':'BELI'}</button></div><div class="shoprow"><div><b>Pakaian awam</b><small>Menukar pakaian ketika di luar tugas.</small></div><strong>RM 120</strong><button class="smallbtn" id="buyClothes">BELI</button></div>`,'KEDIAMAN');document.querySelector('#buyHome')!.addEventListener('click',()=>{if(save.homeOwned){sceneMode='home';playerX=save.walkX=145;playerY=save.walkY=940;closeModal();toast('Anda berada di rumah. Tekan INTERAKSI untuk keluar.');}else if(save.cash>=4000){save.cash-=4000;save.homeOwned=true;persist();renderUI();showHome();}else toast('Wang tidak mencukupi.');});document.querySelector('#buyPersonalCar')!.addEventListener('click',()=>{if(save.ownedCars.includes('Kereta Kompak'))return;if(save.cash<1200){toast('Wang tidak mencukupi.');return;}save.cash-=1200;save.ownedCars.push('Kereta Kompak');persist();renderUI();showHome();});document.querySelector('#buyClothes')!.addEventListener('click',()=>{if(save.cash<120){toast('Wang tidak mencukupi.');return;}save.cash-=120;save.ownedClothes.push(`Pakaian awam ${save.ownedClothes.length}`);persist();renderUI();toast('Pakaian awam ditambah ke almari.');});}
-function showStation(){modal('Balai Polis Sentosa','Pusat operasi kerjaya. Setiap hari bertugas bermula di sini dengan taklimat ringkas.',`<div class="quickgrid modalquick"><button id="stationBrief">TAKLIMAT & MULA SYIF</button><button id="stationBoard">PAPAN TUGASAN</button><button id="stationReports">MEJA LAPORAN</button><button id="stationGarage">GARAj</button><button id="stationComms">KOMUNIKASI</button></div>`,'BALAI POLIS');document.querySelector('#stationBrief')!.addEventListener('click',briefing);document.querySelector('#stationBoard')!.addEventListener('click',showBoard);document.querySelector('#stationReports')!.addEventListener('click',showReports);document.querySelector('#stationGarage')!.addEventListener('click',showGarage);document.querySelector('#stationComms')!.addEventListener('click',()=>{save.pendingIncident?toast(save.pendingIncident):toast('Tiada insiden utama menunggu.');});}
-function showComms(){modal('Pusat komunikasi','Semak insiden yang menunggu. Aduan bukan bukti automatik salah laku.',`<div class="info-box">${save.pendingIncident||'Tiada insiden utama aktif.'}</div><button class="primary" id="commsPhone">WHATSAPP DALAMAN</button><button class="secondary full" id="commsClose">TUTUP</button>`,'KOMUNIKASI');document.querySelector('#commsPhone')!.addEventListener('click',showPhone);document.querySelector('#commsClose')!.addEventListener('click',closeModal);}
-function openSettings(){modal('Tetapan permainan','Tetapan audio dan kawalan disimpan secara automatik.',`<label class="checkline"><input id="musicOn" type="checkbox" ${save.settings.musicEnabled?'checked':''}> Muzik latar</label><label>Kelantangan muzik <input id="musicVol" type="range" min="0" max="100" value="${save.settings.musicVolume}"></label><label class="checkline"><input id="sfxOn" type="checkbox" ${save.settings.sfxEnabled?'checked':''}> Kesan bunyi</label><label>Kelantangan kesan bunyi <input id="sfxVol" type="range" min="0" max="100" value="${save.settings.sfxVolume}"></label><label>Kawalan memandu<select id="driveMode"><option value="buttons" ${driveControl==='buttons'?'selected':''}>Butang arah + pemecut/brek</option><option value="joystick" ${driveControl==='joystick'?'selected':''}>Joystick</option></select></label><button class="primary" id="settingsSave">SIMPAN TETAPAN</button>`,'TETAPAN');document.querySelector('#settingsSave')!.addEventListener('click',()=>{save.settings.musicEnabled=(document.querySelector('#musicOn') as HTMLInputElement).checked;save.settings.musicVolume=Number((document.querySelector('#musicVol') as HTMLInputElement).value);if(save.settings.musicEnabled&&save.settings.musicVolume>0)startMusic();else stopMusic();save.settings.sfxEnabled=(document.querySelector('#sfxOn') as HTMLInputElement).checked;save.settings.sfxVolume=Number((document.querySelector('#sfxVol') as HTMLInputElement).value);driveControl=(document.querySelector('#driveMode') as HTMLSelectElement).value as any;persist();closeModal();toast('Tetapan disimpan.');});}
-function pauseMenu(){paused=true;modal('Menu jeda','Pemasa syif dan misi dihentikan sementara ketika menu jeda dibuka.',`<button class="primary" id="resumeBtn">SAMBUNG PERMAINAN</button><button class="secondary full" id="pauseSettings">TETAPAN</button><button class="secondary full" id="pauseReports">LAPORAN</button><button class="secondary full" id="pauseSave">SIMPAN SEKARANG</button>`,'JEDA');document.querySelector('#resumeBtn')!.addEventListener('click',()=>{paused=false;closeModal();});document.querySelector('#pauseSettings')!.addEventListener('click',openSettings);document.querySelector('#pauseReports')!.addEventListener('click',showReports);document.querySelector('#pauseSave')!.addEventListener('click',()=>{persist();toast('Simpanan diminta.');});}
-function interact(){if(!save.careerStarted){newCareerScreen();return;}if(sceneMode==='home'){sceneMode='world';toast('Keluar dari rumah.');return;}if(distancePoint(240,165)<95){showStation();return;}if(distancePoint(145,940)<90){showHome();return;}const near=missions.filter(m=>m.status==='available'||m.status==='active').sort((a,b)=>distance(a)-distance(b))[0];if(near&&distance(near)<80){openMission(near);return;}if(save.inVehicle&&distancePoint(carX,carY)<100){toast('Gunakan butang keluar kenderaan.');return;}toast('Tiada interaksi berdekatan. Dekati penanda, balai, rumah atau kenderaan.');}
-function toggleVehicle(){if(save.inVehicle){save.inVehicle=false;playerX=carX;playerY=carY;save.walkX=playerX;save.walkY=playerY;toast('Keluar daripada kenderaan.');}else{if(distancePoint(carX,carY)>75){toast('Dekati kenderaan polis dahulu.');return;}save.inVehicle=true;playerX=carX;playerY=carY;toast(`${save.vehicle}: kawalan memandu diaktifkan.`);}persist();renderUI();}
-function captureSuspect(){if(activeMission?.kind!=='Tangkapan'||!save.inVehicle){toast('Anda perlu berada dalam kenderaan dan menjalankan misi tangkapan.');return;}if(distance(activeMission)>120){toast('Suspek masih jauh. Kejar penanda merah.');return;}if(missionTimer<3){toast('Kenderaan terlalu laju atau masa tidak mencukupi.');return;}activeMission.step=Math.max(activeMission.step,2);doObjective(activeMission);}
-// input handling
-window.addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright',' '].includes(k))e.preventDefault();keys.add(k);if(k==='e')interact();if(k==='escape'&&!modalOpen)pauseMenu();});window.addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));window.addEventListener('blur',()=>keys.clear());document.querySelector('#interactBtn')!.addEventListener('click',interact);document.querySelector('#vehicleBtn')!.addEventListener('click',toggleVehicle);document.querySelector('#captureBtn')!.addEventListener('click',captureSuspect);document.querySelector('#sirenBtn')!.addEventListener('click',()=>{siren=!siren;document.querySelector('#sirenBtn')!.textContent=`SIREN: ${siren?'ON':'OFF'}`;toast(siren?'Siren dan lampu kecemasan diaktifkan.':'Siren dimatikan.');});document.querySelector('#runBtn')!.addEventListener('pointerdown',()=>runHeld=true);for(const ev of ['pointerup','pointercancel','pointerleave'])document.querySelector('#runBtn')!.addEventListener(ev,()=>runHeld=false);document.querySelector('#boardBtn')!.addEventListener('click',showBoard);document.querySelector('#settingsBtn')!.addEventListener('click',openSettings);document.querySelector('#pauseBtn')!.addEventListener('click',pauseMenu);document.querySelector('#fullscreenBtn')!.addEventListener('click',toggleFullscreen);document.querySelector('#musicBtn')!.addEventListener('click',toggleMusic);document.addEventListener('fullscreenchange',syncFullscreenButton);document.querySelector('#recenterBtn')!.addEventListener('click',()=>{cameraX=playerX-480;cameraY=playerY-320;});document.querySelector('#modalClose')!.addEventListener('click',()=>{modalOpen=false;document.querySelector('#modalBackdrop')!.classList.add('hidden');paused=false;});document.querySelector('#modalBackdrop')!.addEventListener('click',e=>{if(e.target===e.currentTarget){closeModal();paused=false;}});document.querySelectorAll<HTMLButtonElement>('[data-key]').forEach(b=>{const dir=b.dataset.key!;const set=(on:boolean)=>{touch={x:0,y:0};if(on){if(dir==='up')touch.y=-1;if(dir==='down')touch.y=1;if(dir==='left')touch.x=-1;if(dir==='right')touch.x=1;}};b.addEventListener('pointerdown',e=>{e.preventDefault();b.setPointerCapture(e.pointerId);set(true);});for(const ev of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(ev,()=>set(false));});document.querySelectorAll<HTMLButtonElement>('[data-action]').forEach(b=>b.addEventListener('click',()=>{const a=b.dataset.action;if(a==='station')showStation();if(a==='reports')showReports();if(a==='garage')showGarage();if(a==='comms')showComms();if(a==='home')showHome();if(a==='phone')showPhone();}));document.querySelector('#resetBtn')?.addEventListener('click',()=>{});
-// Audio runtime: original synthesized patrol music + SFX. Browsers start audio after the first user gesture.
-let audioCtx:AudioContext|null=null;let musicTimer:number|undefined;let musicStep=0;let musicMaster:GainNode|null=null;
-const melody=[392,440,523.25,392,329.63,392,440,329.63,349.23,392,440,349.23,293.66,349.23,392,293.66];
-function getAudio():AudioContext|null{try{audioCtx??=new AudioContext();if(audioCtx.state==='suspended')void audioCtx.resume();return audioCtx;}catch{return null;}}
-function stopMusic(){if(musicTimer!==undefined){window.clearInterval(musicTimer);musicTimer=undefined;}if(musicMaster&&audioCtx)musicMaster.gain.setTargetAtTime(0,audioCtx.currentTime,.08);}
-function playMusicNote(){if(!save.settings.musicEnabled||save.settings.musicVolume<=0){stopMusic();return;}const a=getAudio();if(!a)return;if(!musicMaster){musicMaster=a.createGain();musicMaster.gain.value=0;musicMaster.connect(a.destination);}musicMaster.gain.setTargetAtTime(save.settings.musicVolume/100*.13,a.currentTime,.15);const now=a.currentTime;const note=melody[musicStep%melody.length];musicStep++;for(const [freq,level,duration] of [[note,.42,.34],[note/2,.19,.48]] as number[][]){const osc=a.createOscillator(),gain=a.createGain();osc.type='triangle';osc.frequency.setValueAtTime(freq,now);gain.gain.setValueAtTime(.0001,now);gain.gain.linearRampToValueAtTime(level,now+.025);gain.gain.exponentialRampToValueAtTime(.0001,now+duration);osc.connect(gain);gain.connect(musicMaster);osc.start(now);osc.stop(now+duration+.02);}}
-function startMusic(){if(musicTimer!==undefined||!save.settings.musicEnabled||save.settings.musicVolume<=0)return;if(!getAudio())return;playMusicNote();musicTimer=window.setInterval(playMusicNote,430);}
-function toggleMusic(){save.settings.musicEnabled=!save.settings.musicEnabled;if(save.settings.musicEnabled){startMusic();toast('Muzik latar dihidupkan.');}else{stopMusic();toast('Muzik latar dimatikan.');}persist();syncMusicButton();}
-function syncMusicButton(){const b=document.querySelector<HTMLButtonElement>('#musicBtn');if(b){b.textContent=save.settings.musicEnabled?'♫':'♩';b.setAttribute('aria-label',save.settings.musicEnabled?'Matikan muzik':'Hidupkan muzik');b.title=save.settings.musicEnabled?'Muzik: ON':'Muzik: OFF';b.classList.toggle('audio-off',!save.settings.musicEnabled);}}
-function toggleFullscreen(){const root=document.documentElement as HTMLElement&{webkitRequestFullscreen?:()=>Promise<void>};const doc=document as Document&{webkitExitFullscreen?:()=>Promise<void>};if(document.fullscreenElement||doc.webkitExitFullscreen){if(document.fullscreenElement)void document.exitFullscreen();else void doc.webkitExitFullscreen?.();return;}if(root.requestFullscreen)void root.requestFullscreen().catch(()=>toast('Paparan penuh tidak disokong oleh pelayar ini.'));else if(root.webkitRequestFullscreen)void root.webkitRequestFullscreen().catch(()=>toast('Paparan penuh tidak tersedia.'));else toast('Pelayar ini tidak menyokong paparan penuh.');}
-function syncFullscreenButton(){const b=document.querySelector<HTMLButtonElement>('#fullscreenBtn');if(b){const on=!!document.fullscreenElement;b.textContent=on?'⤢':'⛶';b.title=on?'Keluar paparan penuh':'Paparan penuh';b.setAttribute('aria-label',b.title);}}
-function sfx(){if(!save.settings.sfxEnabled||save.settings.sfxVolume<=0)return;try{const a=getAudio();if(!a)return;const o=a.createOscillator(),g=a.createGain();o.type='square';o.frequency.value=500;g.gain.value=.018*save.settings.sfxVolume/100;o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+.045);}catch{}}
-document.addEventListener('click',e=>{if((e.target as HTMLElement).closest('button')){sfx();if(save.settings.musicEnabled)startMusic();}});
-window.addEventListener('pointerdown',()=>{if(save.settings.musicEnabled)startMusic();},{once:true});
-syncMusicButton();
-function maybeCareerStart(){renderUI();if(recoveryNotice)toast(recoveryNotice);if(!save.careerStarted)newCareerScreen();else if(save.shiftActive){toast('Syif terdahulu dipulihkan.');}else if(!save.seenTutorial){tutorial();}else briefing();}
-function resizeCanvas(){/* Render at a fixed logical resolution; CSS scales it with nearest-neighbour sampling for a crisp pixel-game look. */canvas.width=960;canvas.height=640;ctx.imageSmoothingEnabled=false;}
-new ResizeObserver(resizeCanvas).observe(canvas);resizeCanvas();requestAnimationFrame(tick);window.setInterval(()=>{if(save.careerStarted)renderUI();},1000);maybeCareerStart();
+
+$('start').addEventListener('click', () => {
+  started = true;
+  $('panel').style.display = 'none';
+  notify('Syif bermula. Gunakan butang arah untuk bergerak.');
+});
+
+$('save').addEventListener('click', saveGame);
+$('interact').addEventListener('click', interact);
+$('patrol').addEventListener('click', startPatrol);
+
+document.querySelectorAll<HTMLButtonElement>('[data-dir]').forEach(btn => {
+  const dir = btn.dataset.dir!;
+  const down = (e: Event) => {
+    e.preventDefault();
+    pressed.add(dir);
+  };
+  const up = (e: Event) => {
+    e.preventDefault();
+    pressed.delete(dir);
+  };
+  btn.addEventListener('pointerdown', down);
+  btn.addEventListener('pointerup', up);
+  btn.addEventListener('pointercancel', up);
+  btn.addEventListener('pointerleave', up);
+});
+
+window.addEventListener('keydown', e => {
+  const key = e.key.toLowerCase();
+  if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(key)) {
+    e.preventDefault();
+  }
+  keys.add(key);
+  if (key === 'e' || key === ' ') interact();
+  if (key === 'p') startPatrol();
+});
+
+window.addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
+
+function drawBuilding(b: typeof buildings[number]) {
+  ctx.fillStyle = '#00000030';
+  ctx.fillRect(b.x + 7, b.y + 8, b.w, b.h);
+  ctx.fillStyle = b.color;
+  ctx.fillRect(b.x, b.y, b.w, b.h);
+
+  ctx.fillStyle = '#667985';
+  ctx.fillRect(b.x - 5, b.y - 9, b.w + 10, 15);
+
+  for (let wx = b.x + 15; wx < b.x + b.w - 15; wx += 38) {
+    ctx.fillStyle = '#83c7d5';
+    ctx.fillRect(wx, b.y + 20, 19, 20);
+  }
+
+  ctx.fillStyle = '#684d3a';
+  ctx.fillRect(b.x + b.w / 2 - 12, b.y + b.h - 35, 24, 35);
+
+  ctx.fillStyle = '#263d4c';
+  ctx.font = 'bold 11px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText(b.label, b.x + b.w / 2, b.y + b.h + 16);
+}
+
+function drawPerson(x: number, y: number, police: boolean) {
+  ctx.fillStyle = '#00000035';
+  ctx.fillRect(x - 9, y + 12, 19, 6);
+
+  ctx.fillStyle = '#e4b38b';
+  ctx.fillRect(x - 6, y - 17, 12, 12);
+
+  ctx.fillStyle = police ? '#234c75' : '#b85b43';
+  ctx.fillRect(x - 9, y - 5, 18, 20);
+
+  ctx.fillStyle = '#182735';
+  ctx.fillRect(x - 8, y + 14, 6, 10);
+  ctx.fillRect(x + 2, y + 14, 6, 10);
+
+  if (police) {
+    ctx.fillStyle = '#142b43';
+    ctx.fillRect(x - 8, y - 20, 16, 5);
+    ctx.fillStyle = '#e8c55d';
+    ctx.fillRect(x - 2, y - 3, 4, 4);
+  }
+}
+
+function drawCar(x: number, y: number, police: boolean) {
+  ctx.fillStyle = '#00000030';
+  ctx.fillRect(x - 26, y - 11, 56, 30);
+
+  ctx.fillStyle = police ? '#e5e8ed' : '#bd654a';
+  ctx.fillRect(x - 25, y - 15, 50, 29);
+
+  ctx.fillStyle = '#284b60';
+  ctx.fillRect(x - 15, y - 11, 30, 10);
+
+  ctx.fillStyle = '#20252b';
+  ctx.fillRect(x - 20, y + 10, 10, 8);
+  ctx.fillRect(x + 10, y + 10, 10, 8);
+
+  if (police) {
+    ctx.fillStyle = '#d84545';
+    ctx.fillRect(x - 8, y - 20, 8, 5);
+    ctx.fillStyle = '#3f8bd2';
+    ctx.fillRect(x, y - 20, 8, 5);
+  }
+}
+
+function render(time: number) {
+  const dt = Math.min((time - lastTime) / 1000 || 0, 0.05);
+  lastTime = time;
+
+  if (messageTimer > 0) {
+    messageTimer -= dt;
+    if (messageTimer <= 0) $('message').style.display = 'none';
+  }
+
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  const cameraX = Math.max(0, Math.min(1920 - w, save.x - w / 2));
+  const cameraY = Math.max(0, Math.min(960 - h, save.y - h / 2));
+
+  if (started) {
+    let dx = 0, dy = 0;
+    if (keys.has('w') || keys.has('arrowup') || pressed.has('up')) dy--;
+    if (keys.has('s') || keys.has('arrowdown') || pressed.has('down')) dy++;
+    if (keys.has('a') || keys.has('arrowleft') || pressed.has('left')) dx--;
+    if (keys.has('d') || keys.has('arrowright') || pressed.has('right')) dx++;
+
+    if (dx || dy) {
+      const len = Math.hypot(dx, dy);
+      const speed = patrolActive ? 155 : 190;
+      save.x = Math.max(20, Math.min(1900, save.x + dx / len * speed * dt));
+      save.y = Math.max(20, Math.min(940, save.y + dy / len * speed * dt));
+    }
+  }
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.save();
+  ctx.scale(w / w, h / h);
+  ctx.translate(-cameraX, -cameraY);
+
+  ctx.fillStyle = '#679567';
+  ctx.fillRect(0, 0, 1920, 960);
+
+  // Jalan raya utama
+  ctx.fillStyle = '#555e64';
+  ctx.fillRect(0, 405, 1920, 125);
+  ctx.fillRect(500, 0, 120, 960);
+
+  ctx.strokeStyle = '#e8dba2';
+  ctx.lineWidth = 3;
+  ctx.setLineDash([24, 22]);
+  ctx.beginPath();
+  ctx.moveTo(0, 467);
+  ctx.lineTo(1920, 467);
+  ctx.moveTo(560, 0);
+  ctx.lineTo(560, 960);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Rumput dan pokok
+  for (const t of trees) {
+    ctx.fillStyle = '#396747';
+    ctx.fillRect(t.x - 13, t.y + 6, 27, 24);
+    ctx.fillStyle = '#2d6540';
+    ctx.fillRect(t.x - 12, t.y - 12, 24, 24);
+    ctx.fillStyle = '#4d8550';
+    ctx.fillRect(t.x - 7, t.y - 18, 14, 13);
+  }
+
+  for (const b of buildings) drawBuilding(b);
+
+  drawCar(390, 460, false);
+  drawCar(800, 460, true);
+  drawCar(1250, 460, false);
+
+  // Penanda tugasan
+  for (const m of missions) {
+    if (m.done) continue;
+    const pulse = Math.sin(time / 180) * 4;
+
+    ctx.fillStyle = '#00000030';
+    ctx.beginPath();
+    ctx.ellipse(m.x, m.y + 7, 25, 9, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#f3c94e';
+    ctx.beginPath();
+    ctx.arc(m.x, m.y - pulse, 19, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#26343c';
+    ctx.font = 'bold 20px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('!', m.x, m.y + 7 - pulse);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 12px Arial';
+    ctx.fillText('TUGASAN', m.x, m.y - 30);
+  }
+
+  // Orang awam
+  drawPerson(710, 315, false);
+  drawPerson(960, 340, false);
+  drawPerson(1180, 700, false);
+
+  // Pemain
+  drawPerson(save.x, save.y, true);
+
+  // Petunjuk jarak tugasan
+  const nearby = nearestMission();
+  if (nearby && nearby.d < 115) {
+    ctx.fillStyle = '#172b3a';
+    ctx.fillRect(save.x - 92, save.y - 54, 184, 25);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 12px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('TEKAN INTERAKSI', save.x, save.y - 37);
+  }
+
+  ctx.restore();
+  requestAnimationFrame(render);
+}
+
+updateHUD();
+requestAnimationFrame(render);
