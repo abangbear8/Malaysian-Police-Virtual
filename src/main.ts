@@ -380,3 +380,134 @@ document
       playButtonSound();
     });
   });
+
+/* MUZIK LATAR MAIN MENU */
+(() => {
+  const toggle = document.querySelector<HTMLInputElement>('#menuMusicToggle');
+  const volume = document.querySelector<HTMLInputElement>('#menuMusicVolume');
+  const status = document.querySelector<HTMLElement>('#menuMusicStatus');
+
+  if (!toggle || !volume || !status) return;
+
+  let musicTimer: number | undefined;
+  let noteIndex = 0;
+  let musicGain: GainNode | undefined;
+
+  const notes = [
+    261.63, 329.63, 392.00, 329.63,
+    293.66, 349.23, 440.00, 349.23,
+    261.63, 329.63, 392.00, 523.25,
+    440.00, 392.00, 329.63, 293.66
+  ];
+
+  function stopMusic(): void {
+    if (musicTimer !== undefined) {
+      window.clearInterval(musicTimer);
+      musicTimer = undefined;
+    }
+  }
+
+  function playMusicNote(): void {
+    if (
+      !toggle.checked ||
+      !document.body.classList.contains('main-menu-active') ||
+      !buttonAudioContext ||
+      !musicGain
+    ) {
+      stopMusic();
+      return;
+    }
+
+    const now = buttonAudioContext.currentTime;
+    const oscillator = buttonAudioContext.createOscillator();
+    const noteGain = buttonAudioContext.createGain();
+
+    oscillator.type = 'triangle';
+    oscillator.frequency.value = notes[noteIndex % notes.length];
+
+    noteGain.gain.setValueAtTime(0.0001, now);
+    noteGain.gain.linearRampToValueAtTime(0.10, now + 0.08);
+    noteGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.48);
+
+    oscillator.connect(noteGain);
+    noteGain.connect(musicGain);
+
+    oscillator.start(now);
+    oscillator.stop(now + 0.5);
+
+    noteIndex++;
+  }
+
+  function startMusic(): void {
+    stopMusic();
+
+    if (
+      !toggle.checked ||
+      !document.body.classList.contains('main-menu-active')
+    ) {
+      return;
+    }
+
+    buttonAudioContext ??= new AudioContext();
+
+    void buttonAudioContext.resume().then(() => {
+      if (
+        !toggle.checked ||
+        !document.body.classList.contains('main-menu-active')
+      ) {
+        return;
+      }
+
+      if (!musicGain) {
+        musicGain = buttonAudioContext!.createGain();
+        musicGain.connect(buttonAudioContext!.destination);
+      }
+
+      musicGain.gain.value = Number(volume.value) / 100;
+
+      playMusicNote();
+      musicTimer = window.setInterval(playMusicNote, 500);
+    });
+  }
+
+  toggle.addEventListener('change', () => {
+    status.textContent = toggle.checked ? 'ON' : 'OFF';
+
+    if (toggle.checked) {
+      startMusic();
+    } else {
+      stopMusic();
+    }
+  });
+
+  volume.addEventListener('input', () => {
+    if (musicGain) {
+      musicGain.gain.value = Number(volume.value) / 100;
+    }
+  });
+
+  document.addEventListener('click', () => {
+    if (
+      toggle.checked &&
+      document.body.classList.contains('main-menu-active') &&
+      musicTimer === undefined
+    ) {
+      startMusic();
+    }
+  });
+
+  const menuObserver = new MutationObserver(() => {
+    if (document.body.classList.contains('main-menu-active')) {
+      if (toggle.checked && musicTimer === undefined) {
+        startMusic();
+      }
+    } else {
+      stopMusic();
+    }
+  });
+
+  menuObserver.observe(document.body, {
+    attributes: true,
+    attributeFilter: ['class']
+  });
+})();
