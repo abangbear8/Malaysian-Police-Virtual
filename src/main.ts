@@ -38,8 +38,8 @@ const camera=new THREE.PerspectiveCamera(38,sceneHost.clientWidth/sceneHost.clie
 scene.add(new THREE.HemisphereLight(0xe6f8ff,0x65765c,2.1)); const sun=new THREE.DirectionalLight(0xfff2d4,3.1); sun.position.set(-15,28,18); sun.castShadow=true; sun.shadow.mapSize.set(1024,1024); scene.add(sun);
 const mat=(color:number,roughness=1)=>new THREE.MeshStandardMaterial({color,roughness});
 const grass=mat(0x7cba8b), road=mat(0x424d5b), sidewalk=mat(0xc5c6b8), white=mat(0xf5f5e9), navy=mat(0x17334b), blue=mat(0x2f78a5), glass=mat(0x82c8d6), yellow=mat(0xf2c45d), treeMat=mat(0x3e9164), trunk=mat(0x76543b), buildingMats=[mat(0xe5a77b),mat(0xf1d6a6),mat(0xb5d5d0),mat(0xc1b5de),mat(0xf1a8a0)];
-function box(w:number,h:number,d:number,material:THREE.Material,x:number,y:number,z:number, parent=scene){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material);m.position.set(x,y+h/2,z);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m;}
-function cylinder(r:number,h:number,material:THREE.Material,x:number,y:number,z:number,parent=scene){const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,8),material);m.position.set(x,y+h/2,z);m.castShadow=true;parent.add(m);return m;}
+function box(w:number,h:number,d:number,material:THREE.Material,x:number,y:number,z:number, parent:THREE.Object3D=scene){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material);m.position.set(x,y+h/2,z);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m;}
+function cylinder(r:number,h:number,material:THREE.Material,x:number,y:number,z:number,parent:THREE.Object3D=scene){const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,8),material);m.position.set(x,y+h/2,z);m.castShadow=true;parent.add(m);return m;}
 box(100,.3,100,grass,0,-.2,0);
 // road network and markings
 box(100,.12,10,road,0,.0,0); box(10,.12,100,road,0,.01,0); box(100,.1,2,sidewalk,0,.05,6.1); box(100,.1,2,sidewalk,0,.05,-6.1); box(2,.1,100,sidewalk,6.1,.05,0); box(2,.1,100,sidewalk,-6.1,.05,0);
