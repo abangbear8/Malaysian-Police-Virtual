@@ -331,7 +331,7 @@ const $ = (id: string) => document.getElementById(id)!;
 
 // Gunakan BASE_URL supaya atlas berfungsi di GitHub Pages subfolder.
 const atlas = new Image();
-atlas.src = `${import.meta.env.BASE_URL}mpv-pixel-atlas.svg`;
+atlas.src = '/Malaysian-Police-Virtual/mpv-pixel-atlas.svg';
 
 let atlasReady = false;
 atlas.onload = () => {
