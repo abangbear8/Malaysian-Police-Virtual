@@ -84,6 +84,9 @@ function completeMission(m:Mission){const repeat=missions.filter(q=>q.id===m.id&
 function renderUI(){const rank=Math.min(save.rank,ranks.length-1);document.querySelector('#rankName')!.textContent=ranks[rank];document.querySelector('#xpLabel')!.textContent=`${save.xp.toLocaleString()} / ${(thresholds[rank+1]??thresholds[rank]).toLocaleString()} XP`;const lower=thresholds[rank]??0,upper=thresholds[rank+1]??thresholds[rank];document.querySelector<HTMLElement>('#xpProgress')!.style.width=`${clamp((save.xp-lower)/Math.max(1,upper-lower)*100,0,100)}%`;document.querySelector('#cashLabel')!.textContent=`RM ${save.cash.toLocaleString()}`;document.querySelector('#salaryLabel')!.textContent=`RM ${(1800+rank*180).toLocaleString()}`;document.querySelector('#publicRepLabel')!.textContent=`${save.publicRep}/100`;document.querySelector<HTMLElement>('#publicRepBar')!.style.width=`${save.publicRep}%`;document.querySelector('#orgRepLabel')!.textContent=`${save.orgRep}/100`;document.querySelector<HTMLElement>('#orgRepBar')!.style.width=`${save.orgRep}%`;document.querySelector('#missionCount')!.textContent=`${missions.filter(m=>m.done).length}/6`;const list=document.querySelector<HTMLDivElement>('#missionList')!;list.innerHTML=missions.slice(0,4).map(m=>`<button class="mission-item ${m.done?'done':''}" data-id="${m.id}"><span class="mission-symbol" style="--accent:#${m.color.toString(16)}">${m.done?'✓':'✦'}</span><span class="mission-copy"><b>${m.title}</b><small>${m.kind} · ${m.duration} min</small></span><span class="mission-xp">${m.done?'SELESAI':`+${m.reward}`}<small>${m.done?'':'XP'}</small></span></button>`).join('');list.querySelectorAll<HTMLButtonElement>('[data-id]').forEach(btn=>btn.addEventListener('click',()=>{const m=missions.find(q=>q.id===Number(btn.dataset.id));if(m&&!m.done)openMission(m);else toast('Tugasan ini telah selesai dalam syif ini.');}));}
 function showAllMissions(){showModal('Senarai tugasan','Pilih tugasan yang belum selesai. Dekati penanda di dunia 3D untuk memulakannya.',`<div class="all-missions">${missions.map(m=>`<button class="all-mission-row" data-all-id="${m.id}" ${m.done?'disabled':''}><span class="mission-symbol" style="--accent:#${m.color.toString(16)}">${m.done?'✓':'✦'}</span><span><b>${m.title}</b><small>${m.kind} · ${m.duration} minit</small></span><strong>${m.done?'SELESAI':`+${m.reward} XP`}</strong></button>`).join('')}</div>`);document.querySelectorAll<HTMLButtonElement>('[data-all-id]').forEach(btn=>btn.addEventListener('click',()=>{const m=missions.find(q=>q.id===Number(btn.dataset.allId));if(m&&!m.done){closeModal();const dist=Math.hypot(player.position.x-m.x,player.position.z-m.z);if(dist<3.2)openMission(m);else toast(`Bergerak ke penanda ${m.title} di dunia 3D.`);}}));} function showGameMenu() {
   showModal(
+    
+function showGameMenu() {
+  showModal(
     'Menu utama',
     'Pusat kawalan pegawai bertugas.',
     `<div class="menu-profile">
@@ -92,9 +95,21 @@ function showAllMissions(){showModal('Senarai tugasan','Pilih tugasan yang belum
       <div><small>BAKI WANG</small><b>RM ${save.cash.toLocaleString()}</b></div>
       <div><small>TUGASAN SELESAI</small><b>${missions.filter(m => m.done).length}/6</b></div>
     </div>
-      <button id="menuProfile" class="primary-btn">PROFIL PEGAWAI →</button>
-      <button id="menuTasks" class="secondary-btn">SENARAI TUGASAN →</button>
-      <button id="menuResume" class="secondary-btn">SAMBUNG PERMAINAN</button>
+    <button id="menuProfile" class="primary-btn">PROFIL PEGAWAI →</button>
+    <button id="menuTasks" class="secondary-btn">SENARAI TUGASAN →</button>
+    <button id="menuResume" class="secondary-btn">SAMBUNG PERMAINAN</button>`
+  );
+
+  document.querySelector('#menuProfile')!
+    .addEventListener('click', showOfficerProfile);
+
+  document.querySelector('#menuTasks')!
+    .addEventListener('click', showAllMissions);
+
+  document.querySelector('#menuResume')!
+    .addEventListener('click', closeModal);
+}
+
 
   );
   document.querySelector('#menuTasks')!
