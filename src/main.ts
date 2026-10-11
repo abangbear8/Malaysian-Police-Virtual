@@ -85,6 +85,53 @@ function renderUI(){const rank=Math.min(save.rank,ranks.length-1);document.query
 function showAllMissions(){showModal('Senarai tugasan','Pilih tugasan yang belum selesai. Dekati penanda di dunia 3D untuk memulakannya.',`<div class="all-missions">${missions.map(m=>`<button class="all-mission-row" data-all-id="${m.id}" ${m.done?'disabled':''}><span class="mission-symbol" style="--accent:#${m.color.toString(16)}">${m.done?'✓':'✦'}</span><span><b>${m.title}</b><small>${m.kind} · ${m.duration} minit</small></span><strong>${m.done?'SELESAI':`+${m.reward} XP`}</strong></button>`).join('')}</div>`);document.querySelectorAll<HTMLButtonElement>('[data-all-id]').forEach(btn=>btn.addEventListener('click',()=>{const m=missions.find(q=>q.id===Number(btn.dataset.allId));if(m&&!m.done){closeModal();const dist=Math.hypot(player.position.x-m.x,player.position.z-m.z);if(dist<3.2)openMission(m);else toast(`Bergerak ke penanda ${m.title} di dunia 3D.`);}}));} function showGameMenu() {
   showModal(
     
+
+function showOfficerProfile() {
+  const rank = Math.min(save.rank, ranks.length - 1);
+  const nextXP = thresholds[rank + 1] ?? thresholds[rank];
+  const currentXP = thresholds[rank] ?? 0;
+  const progress = clamp(
+    ((save.xp - currentXP) / Math.max(1, nextXP - currentXP)) * 100,
+    0,
+    100
+  );
+
+  showModal(
+    'Profil Pegawai',
+    'Rekod kerjaya dan prestasi perkhidmatan anda.',
+    `<div class="officer-profile">
+      <div class="officer-badge">👮</div>
+      <h3>${ranks[rank]}</h3>
+      <p>PEGAWAI POLIS MALAYSIA</p>
+
+      <div class="officer-xp">
+        <div>
+          <span>KEMAJUAN PANGKAT</span>
+          <b>${Math.round(progress)}%</b>
+        </div>
+        <div class="progress">
+          <i style="width:${progress}%"></i>
+        </div>
+        <small>${save.xp.toLocaleString()} / ${nextXP.toLocaleString()} XP</small>
+      </div>
+
+      <div class="officer-stats">
+        <div><small>BAKI WANG</small><b>RM ${save.cash.toLocaleString()}</b></div>
+        <div><small>TUGASAN SELESAI</small><b>${save.completed.length}</b></div>
+        <div><small>SKOR TERBAIK</small><b>${save.bestScore}/100</b></div>
+        <div><small>KEPERCAYAAN AWAM</small><b>${save.publicRep}/100</b></div>
+        <div><small>DISIPLIN ORGANISASI</small><b>${save.orgRep}/100</b></div>
+        <div><small>GAJI BULANAN</small><b>RM ${(1800 + rank * 180).toLocaleString()}</b></div>
+      </div>
+
+      <button id="profileBack" class="primary-btn">KEMBALI KE MENU</button>
+    </div>`
+  );
+
+  document.querySelector('#profileBack')!
+    .addEventListener('click', showGameMenu);
+}
+
 function showGameMenu() {
   showModal(
     'Menu utama',
@@ -99,6 +146,17 @@ function showGameMenu() {
     <button id="menuTasks" class="secondary-btn">SENARAI TUGASAN →</button>
     <button id="menuResume" class="secondary-btn">SAMBUNG PERMAINAN</button>`
   );
+
+  document.querySelector('#menuProfile')!
+    .addEventListener('click', showOfficerProfile);
+
+  document.querySelector('#menuTasks')!
+    .addEventListener('click', showAllMissions);
+
+  document.querySelector('#menuResume')!
+    .addEventListener('click', closeModal);
+}
+
 
   document.querySelector('#menuProfile')!
     .addEventListener('click', showOfficerProfile);
