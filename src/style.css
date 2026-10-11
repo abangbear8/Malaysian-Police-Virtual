@@ -153,3 +153,110 @@ html, body, #app {
   margin-top: 10px;
 }
 
+/* MAIN MENU - POLIS MALAYSIA TYCOON */
+.main-menu {
+  position: fixed;
+  inset: 0;
+  z-index: 5000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+  padding: 20px;
+  background:
+    radial-gradient(ellipse at top, #28566b, transparent 65%),
+    linear-gradient(135deg, #071722, #123747, #071722);
+  color: white;
+  font-family: inherit;
+}
+.main-menu-content {
+  width: 100%;
+  max-width: 430px;
+  text-align: center;
+}
+.main-menu-crest {
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 12px;
+  border: 2px solid #e7c777;
+  border-radius: 50%;
+  color: #e7c777;
+  font-size: 36px;
+  font-weight: 900;
+}
+.main-menu-eyebrow {
+  color: #e7c777;
+  font-size: 11px;
+  letter-spacing: 4px;
+}
+.main-menu h1 {
+  margin: 12px 0;
+  font-size: clamp(30px, 6vw, 44px);
+  line-height: 1.1;
+  font-weight: 900;
+}
+.main-menu h1 span {
+  color: #e7c777;
+}
+.main-menu-tagline {
+  margin-bottom: 26px;
+  color: #c1d3dc;
+  font-size: 11px;
+  letter-spacing: 2px;
+}
+.main-menu-buttons {
+  display: grid;
+  gap: 12px;
+}
+.main-menu-btn {
+  width: 100%;
+  min-height: 48px;
+  padding: 13px;
+  border: 1px solid #68818d;
+  border-radius: 9px;
+  background: #173747;
+  color: white;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+.main-menu-btn.primary {
+  border-color: #e7c777;
+  background: #e7c777;
+  color: #102331;
+}
+body.main-menu-active .game-shell {
+  visibility: hidden;
+}
+@media (orientation: landscape) and (max-height: 550px) {
+  .main-menu {
+    padding: 10px;
+  }
+  .main-menu-content {
+    max-width: 620px;
+  }
+  .main-menu-crest {
+    width: 44px;
+    height: 44px;
+    margin-bottom: 5px;
+    font-size: 24px;
+  }
+  .main-menu h1 {
+    margin: 6px 0;
+    font-size: 25px;
+  }
+  .main-menu-tagline {
+    margin-bottom: 10px;
+  }
+  .main-menu-buttons {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .main-menu-btn {
+    min-height: 40px;
+    padding: 8px;
+  }
+}
