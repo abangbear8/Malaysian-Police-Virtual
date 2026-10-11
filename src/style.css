@@ -19,3 +19,128 @@ body{min-height:100dvh;overflow-x:hidden}
 @media (min-width:1100px){.shell{padding:10px 16px 8px}.topbar{padding-top:2px}.gamegrid{padding-top:10px;gap:12px}.worldcard canvas{max-height:calc(100dvh - 185px)}footer{padding-top:8px}}
 @media (max-width:900px){.shell{padding:8px}.topbar{gap:8px}.brand{gap:8px}.crest{width:36px;height:40px}.brand h1{font-size:15px}.topmeta{gap:5px}.topmeta>span{padding:6px;font-size:8px}.gamegrid{grid-template-columns:minmax(0,1fr);gap:10px;padding-top:10px}.worldcard canvas{height:auto;min-height:0;max-height:none;aspect-ratio:3/2}.side{display:grid;grid-template-columns:1fr 1fr;align-items:start}.profile{grid-column:1/-1}.worldcontrols{padding:8px;gap:8px}.dpad button{width:39px;height:33px}.actionpad{max-width:74%;gap:5px}.actionpad button{font-size:9px;padding:8px}.worldfoot{padding:8px}footer{font-size:8px}}
 @media (max-width:520px){.shell{padding:6px}.brand small{font-size:7px}.brand h1{font-size:12px}.topmeta>span:nth-child(2){display:none}.topmeta{gap:3px}.iconbtn{padding:6px 8px;min-width:31px}.gamegrid{padding-top:7px}.worldtop{padding:8px;font-size:8px}.worldtop span:last-child{font-size:12px}.worldcontrols{align-items:center}.dpad button{width:35px;height:30px}.actionpad{max-width:68%}.actionpad button{min-height:32px;font-size:8px;padding:6px}.worldfoot{font-size:9px}.worldfoot button{font-size:8px}.side{grid-template-columns:1fr}.profile{grid-column:auto}.panel{padding:11px}.quickgrid button{min-height:34px}.modal{padding:22px 16px;max-height:88dvh}.modal h2{font-size:20px}footer{flex-direction:column;gap:5px}}
+
+/* MPV — immersive landscape game layout */
+html {
+  min-height: 100%;
+  background: #09131b;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+.shell {
+  width: 100%;
+  max-width: none;
+  padding: 10px 12px;
+}
+
+.topbar {
+  gap: 10px;
+  padding: 4px 0 10px;
+}
+
+.gamegrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  padding-top: 10px;
+}
+
+.worldcard {
+  width: 100%;
+  min-width: 0;
+}
+
+.worldcard canvas {
+  display: block;
+  width: 100%;
+  height: min(72vh, 760px);
+  min-height: 300px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  touch-action: none;
+}
+
+.side {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  min-width: 0;
+}
+
+.panel {
+  min-width: 0;
+}
+
+.worldcontrols {
+  gap: 8px;
+  padding: 10px;
+}
+
+.actionpad {
+  max-width: 75%;
+}
+
+button {
+  touch-action: manipulation;
+}
+
+@media (orientation: landscape) and (max-height: 600px) {
+  .shell {
+    padding: 5px 8px;
+  }
+
+  .topbar {
+    padding-bottom: 6px;
+  }
+
+  .brand h1 {
+    font-size: 15px;
+  }
+
+  .brand small {
+    font-size: 8px;
+  }
+
+  .crest {
+    width: 34px;
+    height: 38px;
+  }
+
+  .gamegrid {
+    padding-top: 6px;
+  }
+
+  .worldtop {
+    padding: 7px 10px;
+  }
+
+  .worldcard canvas {
+    height: 66vh;
+    min-height: 220px;
+  }
+
+  .worldcontrols {
+    padding: 6px;
+  }
+
+  .dpad button {
+    width: 38px;
+    height: 30px;
+  }
+
+  .side {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (orientation: portrait) {
+  .worldcard canvas {
+    height: 48vh;
+    min-height: 250px;
+  }
+}
