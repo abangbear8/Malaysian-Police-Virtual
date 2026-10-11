@@ -114,5 +114,42 @@ html, body, #app {
     font-weight: 700;
     touch-action: manipulation;
   }
+} /* Menu permainan dalam skrin penuh */
+.menu-mobile {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 1003;
+}
+.menu-mobile button {
+  min-height: 46px;
+  padding: 12px 16px;
+  background: #102638eF;
+  color: white;
+  border: 1px solid #d7edf477;
+  border-radius: 10px;
+  font-weight: 700;
+  touch-action: manipulation;
+}
+.menu-profile {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 16px 0;
+}
+.menu-profile > div {
+  padding: 12px;
+  background: #102638;
+  color: white;
+  border-radius: 8px;
+}
+.menu-profile small,
+.menu-profile b {
+  display: block;
+  margin-bottom: 5px;
+}
+.menu-resume {
+  width: 100%;
+  margin-top: 10px;
 }
 
