@@ -1,7 +1,6 @@
 /**
 
 * Malaysian Police Virtual — Pixel Art Sprite Loader
-* Memuatkan sprite SVG dan melukisnya pada Canvas.
     */
 
 export type SpriteName =
@@ -34,13 +33,17 @@ bush: [320, 64],
 };
 
 const atlas = new Image();
-atlas.src = ‘/mpv-pixel-atlas.svg’;
-
 let loaded = false;
 
 atlas.onload = () => {
 loaded = true;
 };
+
+atlas.onerror = () => {
+loaded = false;
+};
+
+atlas.src = ‘/mpv-pixel-atlas.svg’;
 
 export function drawSprite(
 ctx: CanvasRenderingContext2D,
@@ -56,15 +59,19 @@ const [sx, sy] = SPRITES[name];
 
 ctx.save();
 ctx.imageSmoothingEnabled = false;
-
 ctx.drawImage(
 atlas,
-sx, sy, 64, 64,
-Math.round(x), Math.round(y),
-width, height,
+sx,
+sy,
+64,
+64,
+Math.round(x),
+Math.round(y),
+width,
+height,
 );
-
 ctx.restore();
+
 return true;
 }
 
