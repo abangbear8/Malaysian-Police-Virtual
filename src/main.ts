@@ -291,3 +291,61 @@ document.querySelector('#menuCredits')!
     document.querySelector('#creditsBack')!
       .addEventListener('click', closeModal);
   });
+
+/* KESAN BUNYI UNTUK SEMUA BUTANG */
+let buttonAudioContext: AudioContext | null = null;
+
+function playButtonSound(): void {
+  try {
+    buttonAudioContext ??= new AudioContext();
+
+    if (buttonAudioContext.state === 'suspended') {
+      void buttonAudioContext.resume();
+    }
+
+    const oscillator = buttonAudioContext.createOscillator();
+    const gain = buttonAudioContext.createGain();
+
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(
+      650,
+      buttonAudioContext.currentTime
+    );
+    oscillator.frequency.exponentialRampToValueAtTime(
+      420,
+      buttonAudioContext.currentTime + 0.07
+    );
+
+    gain.gain.setValueAtTime(
+      0.12,
+      buttonAudioContext.currentTime
+    );
+    gain.gain.exponentialRampToValueAtTime(
+      0.001,
+      buttonAudioContext.currentTime + 0.08
+    );
+
+    oscillator.connect(gain);
+    gain.connect(buttonAudioContext.destination);
+
+    oscillator.start();
+    oscillator.stop(buttonAudioContext.currentTime + 0.08);
+  } catch (error) {
+    console.warn('Bunyi butang tidak dapat dimainkan:', error);
+  }
+}
+
+document.addEventListener(
+  'click',
+  (event: MouseEvent) => {
+    const target = event.target;
+
+    if (
+      target instanceof Element &&
+      target.closest('button')
+    ) {
+      playButtonSound();
+    }
+  },
+  true
+);
