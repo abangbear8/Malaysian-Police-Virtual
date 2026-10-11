@@ -61,4 +61,55 @@ html, body, #app {
     text-align: center;
     font-weight: bold;
   }
+} 
+/* Kawalan sentuh telefon dalam mod melintang */
+@media (hover: none) and (pointer: coarse) {
+  .touch-controls {
+    position: fixed;
+    z-index: 1001;
+    display: flex;
+    flex-direction: column;
+    left: 18px;
+    bottom: 18px;
+    gap: 5px;
+  }
+
+  .touch-controls > button {
+    align-self: center;
+  }
+
+  .touch-controls div {
+    display: flex;
+    gap: 5px;
+  }
+
+  .touch-controls button {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    background: #102638dc;
+    border: 1px solid #d7edf477;
+    color: white;
+    font-size: 17px;
+    touch-action: none;
+  }
+
+  .interact-mobile {
+    position: fixed;
+    z-index: 1002;
+    display: block;
+    right: 18px;
+    bottom: 24px;
+  }
+
+  .interact-mobile button {
+    min-height: 50px;
+    padding: 14px 17px;
+    background: #55dfbb;
+    color: #082b31;
+    border-radius: 10px;
+    font-weight: 700;
+    touch-action: manipulation;
+  }
 }
+
