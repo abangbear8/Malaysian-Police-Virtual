@@ -144,3 +144,32 @@ button {
     min-height: 250px;
   }
 }
+
+/* Fix iPhone Safari long-press menu on game controls */
+button,
+button *,
+.dpad,
+.actionpad,
+.worldcontrols,
+.worldfoot {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+button {
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+button:focus {
+  outline: none;
+}
+
+button:focus-visible {
+  outline: 2px solid #e4c66f;
+  outline-offset: 2px;
+}
