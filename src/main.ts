@@ -349,3 +349,12 @@ document.addEventListener(
   },
   true
 );
+
+/* BUNYI KHAS UNTUK KAWALAN ARAH TELEFON */
+document
+  .querySelectorAll<HTMLButtonElement>('[data-move]')
+  .forEach((btn) => {
+    btn.addEventListener('pointerdown', () => {
+      playButtonSound();
+    });
+  });
