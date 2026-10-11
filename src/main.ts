@@ -57,7 +57,21 @@ function draw(){
   const wy=b.y+24;for(let wx=b.x+12;wx<b.x+b.w-18;wx+=38){R(wx+2,wy+2,23,24,'#37454d');R(wx,wy,23,22,'#4d8493');R(wx+3,wy+3,17,16,'#8eb9be');L(wx+11,wy,wx+11,wy+22,'#d2d1bf',2);L(wx,wy+11,wx+23,wy+11,'#d2d1bf',2);}
   R(b.x+9,b.y+b.h-35,23,31,'#57483c');R(b.x+12,b.y+b.h-32,17,24,'#987b5c');R(b.x+2,b.y+b.h-5,b.w-4,4,'#5b615e');
   if(b.kind==='shop'){R(b.x+3,b.y+Math.max(54,b.h*.55),b.w-6,17,'#e5c66d');R(b.x+3,b.y+Math.max(54,b.h*.55),b.w-6,3,'#fff0b6');for(let ax=b.x+5;ax<b.x+b.w-6;ax+=12)R(ax,b.y+Math.max(57,b.h*.55+3),5,12,'#b84e43');T('KEDAI',b.x+8,b.y+Math.max(67,b.h*.55+12),9,'#26343d');}
- }
+ } 
+  // Pixel-art building sprites.
+  for (const b of buildings) {
+    const spriteName = b.kind === 'shop' ? 'shop' : 'house';
+
+    drawSprite(
+      ctx,
+      spriteName,
+      b.x,
+      b.y - 8,
+      b.w,
+      b.h + 8,
+    );
+  }
+
  // Main station: glass entrance, columns, forecourt and readable sign.
  R(140,88,240,145,'#8d9893');R(150,78,220,142,'#d0cfc2');R(143,74,234,24,'#3c4650');R(156,99,208,110,'#b7c1b7');
  for(let x=166;x<354;x+=38){R(x,119,26,27,'#3d535e');R(x+3,122,20,21,'#78a4ae');L(x+13,121,x+13,145,'#d1d3c4',2);}
