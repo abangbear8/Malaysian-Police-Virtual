@@ -92,7 +92,7 @@ function draw(){
      }
    }
  }
-{if(Math.abs(x-world.w/2)<105||Math.abs(y-world.h/2)<100)continue;R(x-5,y+5,10,18,'#604833');R(x-9,y+10,18,8,'#4b5b3d');ctx.fillStyle='rgba(20,37,25,.32)';ctx.beginPath();ctx.ellipse(x+4,y+5,20,15,0,0,Math.PI*2);ctx.fill();R(x-14,y-9,28,23,'#28583e');R(x-19,y-17,38,25,'#39764a');R(x-11,y-23,22,17,'#4f8b4f');R(x-12,y-15,7,6,'#75a85e');R(x+4,y-8,8,6,'#76a961');}
+
  // Street lights and signal heads.
  for(const p of [{x:world.w/2-112,y:world.h/2-90},{x:world.w/2+106,y:world.h/2+88},{x:world.w/2+102,y:world.h/2-92}]){R(p.x,p.y,4,25,'#3c454b');R(p.x-5,p.y-4,14,7,'#5a6467');R(p.x-3,p.y-3,5,3,'#f3d68a');}
  R(world.w/2+82,world.h/2-56,9,28,'#28343b');R(world.w/2+84,world.h/2-52,5,5,'#d84b43');R(world.w/2+84,world.h/2-44,5,5,'#d9b94f');R(world.w/2+84,world.h/2-36,5,5,'#5aaf76');
